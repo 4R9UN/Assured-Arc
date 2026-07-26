@@ -1,0 +1,21 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Validate public Assured Arc package (PowerShell)",
+      "type": "shell",
+      "command": "pwsh",
+      "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}\\tests\\validate.ps1"],
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "Public safety scan",
+      "type": "shell",
+      "command": "pwsh",
+      "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}\\tests\\public-safety.ps1"],
+      "group": "test",
+      "problemMatcher": []
+    }
+  ]
+}

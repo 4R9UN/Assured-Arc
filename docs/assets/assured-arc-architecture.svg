@@ -1,0 +1,287 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1800 1120" role="img" aria-labelledby="title desc">
+  <title id="title">Assured Arc architecture</title>
+  <desc id="desc">An original field-notebook style architecture drawing. A developer objective enters through VS Code or GitHub Copilot CLI, becomes an acceptance contract, routes through up to three skills, and enters a bounded seven-phase orchestrator loop. The orchestrator delegates to five isolated workers with one writer and independent verification. Optional Obsidian context, three reviewed research MCP servers, exact tool policy hooks, metadata-only traces, installer state, rollback, and human review support a verified result.</desc>
+  <defs>
+    <filter id="paper-grain" x="-8%" y="-8%" width="116%" height="116%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="4" seed="31" result="noise"/>
+      <feColorMatrix in="noise" type="saturate" values="0" result="gray"/>
+      <feComponentTransfer in="gray" result="faint"><feFuncA type="table" tableValues="0 0.08"/></feComponentTransfer>
+      <feBlend in="SourceGraphic" in2="faint" mode="multiply"/>
+    </filter>
+    <filter id="rough" x="-8%" y="-8%" width="116%" height="116%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.011 0.043" numOctaves="2" seed="13" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="1.5" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="4" dy="6" stdDeviation="5" flood-color="#3d352c" flood-opacity="0.16"/>
+    </filter>
+    <marker id="arrow-graphite" markerWidth="11" markerHeight="9" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L0 8 L10 4 z" fill="#3d3831"/></marker>
+    <marker id="arrow-blue" markerWidth="11" markerHeight="9" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L0 8 L10 4 z" fill="#3f6478"/></marker>
+    <marker id="arrow-rust" markerWidth="11" markerHeight="9" refX="9" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0 L0 8 L10 4 z" fill="#a85f49"/></marker>
+    <pattern id="diagonal-hatch" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(18)"><line x1="0" y1="0" x2="0" y2="9" stroke="#a85f49" stroke-width="1" opacity="0.22"/></pattern>
+    <style>
+      .paper { fill:#f3ead7; }
+      .frame { fill:none; stroke:#665d51; stroke-width:2; opacity:.5; stroke-linecap:round; }
+      .ink { fill:none; stroke:#3d3831; stroke-width:3; stroke-linecap:round; stroke-linejoin:round; }
+      .ink-thin { fill:none; stroke:#514a41; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+      .ghost { fill:none; stroke:#514a41; stroke-width:1.2; opacity:.26; stroke-linecap:round; }
+      .flow { fill:none; stroke:#3d3831; stroke-width:3; stroke-linecap:round; stroke-linejoin:round; marker-end:url(#arrow-graphite); }
+      .flow-blue { fill:none; stroke:#3f6478; stroke-width:3; stroke-linecap:round; stroke-linejoin:round; marker-end:url(#arrow-blue); }
+      .flow-rust { fill:none; stroke:#a85f49; stroke-width:3; stroke-linecap:round; stroke-linejoin:round; marker-end:url(#arrow-rust); }
+      .support { fill:none; stroke:#6a6257; stroke-width:2; stroke-linecap:round; opacity:.58; }
+      .motion-dot { fill:#a85f49; stroke:#fffaf0; stroke-width:3; }
+      .motion-dot-blue { fill:#3f6478; stroke:#fffaf0; stroke-width:3; }
+      @media (prefers-reduced-motion: reduce) {
+        .motion-dot, .motion-dot-blue { display:none; }
+      }
+      .drawline { vector-effect:non-scaling-stroke; }
+      .card { fill:#fbf4e5; stroke:#3d3831; stroke-width:2.8; rx:18; }
+      .card-blue { fill:#dce7e8; }
+      .card-green { fill:#dfe6d4; }
+      .card-rust { fill:#eed2c3; }
+      .card-gold { fill:#ecdcae; }
+      .card-plum { fill:#e3dce7; }
+      .card-gray { fill:#ebe4d7; }
+      .tag { fill:#f8f0dd; stroke:#514a41; stroke-width:1.5; rx:9; }
+      .title { font:700 46px 'Segoe Print','Bradley Hand',cursive; letter-spacing:1.2px; fill:#2c2823; }
+      .subtitle { font:600 17px 'Segoe Print','Bradley Hand',cursive; fill:#62594f; }
+      .zone { font:700 15px 'Segoe UI',sans-serif; letter-spacing:3.4px; fill:#756a5d; }
+      .heading { font:700 24px 'Segoe Print','Bradley Hand',cursive; fill:#302b26; }
+      .label { font:700 18px 'Segoe Print','Bradley Hand',cursive; fill:#39342e; }
+      .body { font:600 15px 'Segoe Print','Bradley Hand',cursive; fill:#50483f; }
+      .tiny { font:600 12px 'Segoe UI',sans-serif; letter-spacing:.25px; fill:#5a5147; }
+      .micro { font:600 10px 'Segoe UI',sans-serif; letter-spacing:.3px; fill:#665d51; }
+      .phase { font:700 14px 'Segoe Print','Bradley Hand',cursive; fill:#332f2a; }
+      .number { font:800 16px 'Segoe Print','Bradley Hand',cursive; fill:#f9f2df; }
+      .white { fill:#fffaf0; }
+      .blue-stroke { stroke:#3f6478; }
+      .rust-stroke { stroke:#a85f49; }
+      .gold-stroke { stroke:#b38a3f; }
+      .green-stroke { stroke:#6c835e; }
+      .plum-stroke { stroke:#75677c; }
+    </style>
+  </defs>
+
+  <g id="stage-base">
+    <rect width="1800" height="1120" class="paper" filter="url(#paper-grain)"/>
+    <path d="M34 36 Q890 19 1766 36 M34 1084 Q900 1100 1767 1084 M34 36 Q18 560 34 1084 M1766 36 Q1783 556 1767 1084" class="frame" filter="url(#rough)"/>
+    <path d="M58 96 Q900 112 1740 95" class="ghost"/>
+    <text x="900" y="69" text-anchor="middle" class="title">Assured Arc</text>
+    <text x="900" y="100" text-anchor="middle" class="subtitle">one intent · two native hosts · one bounded evidence loop</text>
+    <text x="72" y="140" class="zone">ENTRY SURFACES</text>
+    <text x="455" y="140" class="zone">CONTROL CONTRACT</text>
+    <text x="820" y="140" class="zone">BOUNDED RUNTIME</text>
+    <text x="1360" y="140" class="zone">SPECIALIST CONSTELLATION</text>
+    <text x="72" y="760" class="zone">SUPPORT PLANES</text>
+  </g>
+
+  <g id="stage-surfaces">
+    <!-- developer and intent -->
+    <circle cx="103" cy="208" r="25" class="ink"/>
+    <path d="M64 290 Q69 242 103 242 Q136 243 143 290 M83 247 L62 270 M124 247 L145 270" class="ink"/>
+    <path d="M76 204 Q101 181 128 204" class="ghost"/>
+    <rect x="154" y="174" width="214" height="80" rx="16" class="card card-gold" filter="url(#shadow)"/>
+    <text x="261" y="202" text-anchor="middle" class="label">developer objective</text>
+    <text x="261" y="226" text-anchor="middle" class="tiny">desired outcome · constraints</text>
+    <text x="261" y="244" text-anchor="middle" class="tiny">current-turn approval</text>
+    <path d="M145 225 C150 225 153 225 159 225" class="flow drawline"/>
+
+    <!-- host surfaces -->
+    <rect x="70" y="330" width="145" height="154" class="card card-blue" filter="url(#shadow)"/>
+    <rect x="91" y="354" width="103" height="70" rx="7" fill="#fbf4e5" stroke="#3f6478" stroke-width="2.5"/>
+    <path d="M106 440 L179 440 M142 424 L142 440" class="ink-thin blue-stroke"/>
+    <text x="142" y="383" text-anchor="middle" class="label">VS Code</text>
+    <text x="142" y="404" text-anchor="middle" class="micro">agents · prompts</text>
+    <text x="142" y="460" text-anchor="middle" class="tiny">settings + hooks</text>
+
+    <rect x="238" y="330" width="145" height="154" class="card card-gray" filter="url(#shadow)"/>
+    <rect x="258" y="354" width="105" height="70" rx="7" fill="#2f3338" stroke="#3d3831" stroke-width="2.5"/>
+    <text x="273" y="382" class="tiny white">&gt;_</text>
+    <text x="310" y="402" text-anchor="middle" class="tiny white">copilot</text>
+    <text x="310" y="460" text-anchor="middle" class="tiny">CLI · opt-in profile</text>
+
+    <!-- portable source -->
+    <path d="M90 535 L176 535 L191 550 L356 550 L356 661 L90 661 Z" class="card card-plum"/>
+    <text x="223" y="578" text-anchor="middle" class="label">portable repository sources</text>
+    <text x="223" y="608" text-anchor="middle" class="tiny">.github/agents · .github/skills</text>
+    <text x="223" y="631" text-anchor="middle" class="tiny">instructions · host MCP templates</text>
+    <path d="M142 486 C142 510 164 520 187 542 M310 486 C309 512 286 521 264 542" class="support drawline"/>
+    <rect x="115" y="676" width="218" height="36" class="tag"/>
+    <text x="224" y="699" text-anchor="middle" class="tiny">no second orchestration runtime</text>
+  </g>
+
+  <g id="stage-semantic-connectors">
+    <path id="flow-objective-contract" data-motion-intent="causality: developer objective becomes acceptance contract" d="M368 214 C410 214 418 260 448 260" class="flow-rust drawline"/>
+    <path d="M365 820 C402 790 420 735 448 680" class="support drawline"/>
+    <path d="M744 904 L1768 904 L1768 232 L1732 232" class="support plum-stroke drawline"/>
+    <path d="M958 805 C958 748 987 708 1005 671" class="support rust-stroke drawline"/>
+    <path id="flow-verifier-outcome" data-motion-intent="verification: independent verifier gates the outcome" d="M1621 592 L1621 748 C1621 772 1613 782 1605 795" class="flow-blue drawline"/>
+  </g>
+
+  <g id="stage-contract">
+    <!-- convergence -->
+    <path d="M214 408 C342 408 378 328 452 328" class="flow-blue drawline"/>
+    <path d="M383 408 C411 408 424 368 452 368" class="flow drawline"/>
+
+    <rect x="448" y="180" width="306" height="238" class="card card-gold" filter="url(#shadow)"/>
+    <circle cx="483" cy="216" r="18" fill="#a85f49"/>
+    <text x="483" y="222" text-anchor="middle" class="number">1</text>
+    <text x="514" y="224" class="heading">acceptance contract</text>
+    <path d="M475 242 Q598 250 728 241" class="ink-thin rust-stroke"/>
+    <text x="484" y="276" class="body">objective</text><text x="708" y="276" text-anchor="end" class="tiny">observable success</text>
+    <text x="484" y="310" class="body">scope</text><text x="708" y="310" text-anchor="end" class="tiny">allowed files + tools</text>
+    <text x="484" y="344" class="body">trust</text><text x="708" y="344" text-anchor="end" class="tiny">external content = data</text>
+    <text x="484" y="378" class="body">stop</text><text x="708" y="378" text-anchor="end" class="tiny">pass · budget · unsafe</text>
+
+    <rect x="448" y="456" width="306" height="232" class="card card-blue" filter="url(#shadow)"/>
+    <circle cx="483" cy="492" r="18" fill="#3f6478"/>
+    <text x="483" y="498" text-anchor="middle" class="number">2</text>
+    <text x="514" y="500" class="heading">context router</text>
+    <path d="M477 520 C522 520 523 570 568 570 C612 570 613 520 657 520 C701 520 701 570 727 570" class="ink blue-stroke drawline"/>
+    <circle cx="478" cy="520" r="7" fill="#3f6478"/>
+    <circle cx="568" cy="570" r="7" fill="#3f6478"/>
+    <circle cx="657" cy="520" r="7" fill="#3f6478"/>
+    <circle cx="727" cy="570" r="7" fill="#3f6478"/>
+    <text x="601" y="608" text-anchor="middle" class="label">compact index → 1–3 skills</text>
+    <text x="601" y="633" text-anchor="middle" class="tiny">full SKILL.md loads only after selection</text>
+    <text x="601" y="658" text-anchor="middle" class="tiny">trusted selectors only</text>
+    <path d="M601 420 L601 450" class="flow drawline"/>
+  </g>
+
+  <g id="stage-loop">
+    <!-- bounded session halo -->
+    <ellipse cx="1033" cy="429" rx="247" ry="268" fill="#fbf4e5" fill-opacity=".52" stroke="#a85f49" stroke-width="2.4" opacity=".78"/>
+    <text x="1033" y="174" text-anchor="middle" class="tiny">BOUNDED SESSION · DEPTH 1</text>
+    <ellipse cx="1033" cy="429" rx="184" ry="186" class="ink blue-stroke drawline"/>
+    <ellipse cx="1033" cy="429" rx="172" ry="175" class="ghost"/>
+
+    <!-- center -->
+    <circle cx="1033" cy="429" r="90" fill="#eed2c3" stroke="#3d3831" stroke-width="3.2" filter="url(#shadow)"/>
+    <circle cx="1033" cy="429" r="76" fill="url(#diagonal-hatch)" stroke="#a85f49" stroke-width="1.5"/>
+    <path d="M987 409 Q1033 371 1079 409 M987 451 Q1033 488 1079 451" class="ink"/>
+    <circle cx="1005" cy="430" r="5" fill="#3d3831"/><circle cx="1061" cy="430" r="5" fill="#3d3831"/>
+    <text x="1033" y="421" text-anchor="middle" class="heading">orchestrator</text>
+    <text x="1033" y="446" text-anchor="middle" class="tiny">owns every handoff</text>
+
+    <!-- phases -->
+    <g>
+      <circle cx="1033" cy="235" r="35" class="card card-gold"/><text x="1033" y="240" text-anchor="middle" class="phase">contract</text>
+      <circle cx="1173" cy="292" r="35" class="card card-blue"/><text x="1173" y="297" text-anchor="middle" class="phase">route</text>
+      <circle cx="1221" cy="431" r="39" class="card card-green"/><text x="1221" y="427" text-anchor="middle" class="phase">delegate</text><text x="1221" y="444" text-anchor="middle" class="micro">≤ 3 parallel</text>
+      <circle cx="1169" cy="568" r="35" class="card card-rust"/><text x="1169" y="573" text-anchor="middle" class="phase">act</text>
+      <circle cx="1033" cy="624" r="37" class="card card-gold"/><text x="1033" y="620" text-anchor="middle" class="phase">verify</text><text x="1033" y="638" text-anchor="middle" class="micro">independent</text>
+      <circle cx="894" cy="568" r="37" class="card card-plum"/><text x="894" y="564" text-anchor="middle" class="phase">repair</text><text x="894" y="582" text-anchor="middle" class="micro">≤ 2</text>
+      <circle cx="845" cy="429" r="37" class="card card-green"/><text x="845" y="434" text-anchor="middle" class="phase">complete</text>
+    </g>
+    <path d="M1067 246 C1111 254 1137 267 1150 280 M1195 319 C1210 346 1217 373 1219 391 M1218 471 C1210 507 1190 535 1182 544 M1137 586 C1104 607 1074 615 1070 616 M996 615 C959 607 930 594 920 584 M870 539 C852 510 845 478 845 466" class="flow-blue drawline"/>
+    <path d="M845 392 C858 331 911 266 994 244" class="flow-blue drawline"/>
+    <path d="M995 271 C945 305 898 352 873 395" class="support drawline"/>
+    <text x="886" y="309" class="micro">simple task direct path</text>
+
+    <!-- router to loop -->
+    <path id="flow-router-loop" data-motion-intent="progress: selected context enters the bounded loop" d="M758 570 C799 570 803 502 840 486" class="flow-blue drawline"/>
+  </g>
+
+  <g id="stage-workers">
+    <!-- handoff spine -->
+    <circle cx="1458" cy="356" r="30" fill="#fbf4e5" stroke="#3d3831" stroke-width="2.8"/>
+    <text x="1458" y="361" text-anchor="middle" class="label">O</text>
+    <text x="1458" y="398" text-anchor="middle" class="micro">no peer-to-peer links</text>
+    <path id="flow-loop-workers" data-motion-intent="handoff: orchestrator delegates to an isolated specialist" d="M1262 430 C1324 430 1367 382 1424 365" class="flow drawline"/>
+
+    <!-- worker cards -->
+    <rect x="1320" y="180" width="153" height="103" class="card card-blue" filter="url(#shadow)"/>
+    <path d="M1341 207 Q1360 186 1378 207 M1347 208 L1341 246 L1377 246 L1372 208" class="ink-thin blue-stroke"/>
+    <text x="1410" y="218" class="label">Scout</text><text x="1410" y="243" class="tiny">read + search</text><text x="1410" y="265" class="micro">repository evidence</text>
+
+    <rect x="1510" y="180" width="222" height="103" class="card card-plum" filter="url(#shadow)"/>
+    <circle cx="1543" cy="219" r="17" class="ink-thin plum-stroke"/><path d="M1555 231 L1570 246" class="ink-thin plum-stroke"/>
+    <text x="1590" y="218" class="label">Researcher</text><text x="1590" y="243" class="tiny">web + reviewed MCP</text><text x="1590" y="265" class="micro">never edits</text>
+
+    <rect x="1510" y="321" width="222" height="117" class="card card-rust" filter="url(#shadow)"/>
+    <path d="M1533 353 L1559 327 L1570 338 L1544 364 Z M1531 366 L1545 363" class="ink-thin rust-stroke"/>
+    <text x="1590" y="351" class="label">Implementer</text><text x="1590" y="377" class="tiny">read · edit · search</text>
+    <rect x="1588" y="391" width="117" height="25" class="tag"/><text x="1646" y="408" text-anchor="middle" class="micro">ONLY WRITER</text>
+
+    <rect x="1510" y="479" width="222" height="113" class="card card-gold" filter="url(#shadow)"/>
+    <path d="M1530 526 L1543 539 L1570 505" class="ink gold-stroke"/>
+    <text x="1590" y="515" class="label">Verifier</text><text x="1590" y="541" class="tiny">read · search · execute</text><text x="1590" y="565" class="micro">independent checks</text>
+
+    <rect x="1320" y="489" width="153" height="103" class="card card-gray" filter="url(#shadow)"/>
+    <path d="M1340 519 C1350 498 1378 498 1385 520 C1380 546 1350 552 1338 531" class="ink-thin"/>
+    <text x="1410" y="522" class="label">Critic</text><text x="1410" y="548" class="tiny">read only</text><text x="1410" y="570" class="micro">challenge claims</text>
+
+    <path d="M1445 326 C1430 300 1416 287 1405 283 M1478 332 C1510 294 1534 283 1555 277 M1488 362 C1495 364 1501 365 1508 366 M1480 382 C1510 432 1535 470 1551 489 M1442 385 C1427 426 1412 466 1405 487" class="ink-thin drawline"/>
+    <text x="1517" y="635" class="tiny">max 7 worker invocations / session</text>
+    <text x="1517" y="658" class="tiny">workers cannot spawn workers</text>
+  </g>
+
+  <g id="stage-context">
+    <!-- optional vault -->
+    <rect x="70" y="805" width="300" height="222" class="card card-plum" filter="url(#shadow)"/>
+    <text x="95" y="842" class="heading">optional knowledge vault</text>
+    <path d="M108 897 L148 865 L194 904 L241 868 L321 908 M148 865 L241 868 M194 904 L321 908" class="ink-thin plum-stroke drawline"/>
+    <circle cx="108" cy="897" r="8" fill="#75677c"/><circle cx="148" cy="865" r="8" fill="#75677c"/><circle cx="194" cy="904" r="8" fill="#75677c"/><circle cx="241" cy="868" r="8" fill="#75677c"/><circle cx="321" cy="908" r="8" fill="#75677c"/>
+    <text x="220" y="948" text-anchor="middle" class="body">Obsidian MOCs + wikilinks</text>
+    <text x="220" y="976" text-anchor="middle" class="tiny">durable context · local-only boundary</text>
+    <text x="220" y="1002" text-anchor="middle" class="micro">not hidden execution state</text>
+
+    <!-- research MCP -->
+    <rect x="407" y="805" width="337" height="222" class="card card-blue" filter="url(#shadow)"/>
+    <text x="431" y="842" class="heading">reviewed research plane</text>
+    <rect x="438" y="875" width="88" height="48" class="tag"/><rect x="532" y="875" width="94" height="48" class="tag"/><rect x="632" y="875" width="82" height="48" class="tag"/>
+    <text x="482" y="904" text-anchor="middle" class="tiny">Context7</text><text x="579" y="904" text-anchor="middle" class="tiny">Thinking</text><text x="673" y="904" text-anchor="middle" class="tiny">arXiv</text>
+    <text x="575" y="954" text-anchor="middle" class="body">external evidence is tainted data</text>
+    <text x="575" y="982" text-anchor="middle" class="tiny">available to Researcher · not Writer</text>
+
+    <!-- policy hooks -->
+    <rect x="780" y="805" width="350" height="222" class="card card-rust" filter="url(#shadow)"/>
+    <text x="804" y="842" class="heading">deterministic policy hooks</text>
+    <path d="M829 878 L873 894 L866 946 Q854 971 829 980 Q804 971 792 946 L785 894 Z" fill="#fbf4e5" stroke="#a85f49" stroke-width="2.5"/>
+    <path d="M807 928 L824 944 L853 907" class="ink-thin rust-stroke"/>
+    <text x="885" y="887" class="body">exact tool policy</text>
+    <text x="885" y="915" class="tiny">allow · ask · deny</text>
+    <text x="885" y="943" class="tiny">pre-delegation writer lock</text>
+    <text x="885" y="971" class="tiny">metadata-only traces · 14 days</text>
+    <rect x="877" y="989" width="219" height="24" class="tag"/><text x="987" y="1005" text-anchor="middle" class="micro">no prompts · no args · no results</text>
+  </g>
+
+  <g id="stage-evidence">
+    <!-- state and rollback -->
+    <rect x="1167" y="805" width="260" height="222" class="card card-gray" filter="url(#shadow)"/>
+    <text x="1191" y="842" class="heading">ownership ledger</text>
+    <path d="M1200 873 L1332 873 L1350 892 L1350 950 L1200 950 Z M1332 873 L1332 893 L1350 893" class="ink-thin"/>
+    <text x="1275" y="908" text-anchor="middle" class="label">state schema 4</text>
+    <text x="1275" y="932" text-anchor="middle" class="micro">VS Code + CLI ownership</text>
+    <path d="M1218 985 C1245 958 1305 960 1330 986" class="flow-rust drawline"/>
+    <text x="1275" y="1011" text-anchor="middle" class="tiny">backup · uninstall · rollback</text>
+
+    <!-- verified outcome -->
+    <path d="M1465 795 Q1612 780 1750 802 L1735 1028 Q1601 1044 1460 1024 Z" fill="#dfe6d4" stroke="#3d3831" stroke-width="3" filter="url(#shadow)"/>
+    <path d="M1480 813 Q1605 798 1734 818" class="ghost"/>
+    <text x="1605" y="850" text-anchor="middle" class="heading">verified outcome</text>
+    <circle cx="1605" cy="919" r="54" fill="#fbf4e5" stroke="#6c835e" stroke-width="3"/>
+    <path d="M1572 921 L1596 946 L1640 891" class="ink green-stroke"/>
+    <text x="1605" y="994" text-anchor="middle" class="body">change or recommendation</text>
+    <text x="1605" y="1017" text-anchor="middle" class="micro">evidence · uncertainty · human gate</text>
+    <path d="M1429 918 C1442 918 1447 918 1461 918" class="flow drawline"/>
+  </g>
+
+  <g id="stage-annotations">
+    <path d="M410 157 Q433 146 456 157" class="ink-thin rust-stroke"/>
+    <text x="70" y="1067" class="micro">ORIGINAL EDITABLE ARTWORK · canonical behavior lives in policy, agents, hooks, state, and tests</text>
+    <text x="1730" y="1067" text-anchor="end" class="micro">field note 04 · evidence before autonomy</text>
+    <circle r="8" class="motion-dot">
+      <animateMotion dur="3.2s" repeatCount="indefinite"><mpath href="#flow-objective-contract"/></animateMotion>
+    </circle>
+    <circle r="7" class="motion-dot-blue">
+      <animateMotion dur="4.2s" begin=".7s" repeatCount="indefinite"><mpath href="#flow-router-loop"/></animateMotion>
+    </circle>
+    <circle r="7" class="motion-dot">
+      <animateMotion dur="4.8s" begin="1.2s" repeatCount="indefinite"><mpath href="#flow-loop-workers"/></animateMotion>
+    </circle>
+    <circle r="7" class="motion-dot-blue">
+      <animateMotion dur="5.6s" begin="1.8s" repeatCount="indefinite"><mpath href="#flow-verifier-outcome"/></animateMotion>
+    </circle>
+  </g>
+</svg>

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json.schemastore.org/vscode-extensions.json",
+  "extensions": [
+    { "id": "github.copilot-chat", "required": true, "install": false, "reason": "Built-in Copilot chat, completion, custom agents, and skills" },
+    { "id": "ms-python.python", "required": false, "reason": "Python editing and testing" },
+    { "id": "ms-vscode.powershell", "required": false, "reason": "PowerShell installer development" },
+    { "id": "redhat.vscode-yaml", "required": false, "reason": "YAML validation for templates and MCP assets" },
+    { "id": "yzhang.markdown-all-in-one", "required": false, "reason": "Markdown authoring" },
+    { "id": "bierner.markdown-mermaid", "required": false, "reason": "Mermaid diagram preview" }
+  ]
+}

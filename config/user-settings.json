@@ -1,0 +1,20 @@
+{
+  "chat.includeApplyingInstructions": true,
+  "chat.includeReferencedInstructions": true,
+  "chat.useAgentsMdFile": false,
+  "chat.useClaudeMdFile": false,
+  "chat.useAgentSkills": true,
+  "chat.customAgentInSubagent.enabled": true,
+  "chat.subagents.allowInvocationsFromSubagents": false,
+  "security.workspace.trust.enabled": true,
+  "chat.agentFilesLocations": {},
+  "chat.promptFilesLocations": {},
+  "chat.agentSkillsLocations": {},
+  "chat.hookFilesLocations": {},
+  "chat.instructionsFilesLocations": {
+    ".github/instructions": false,
+    "~/.copilot/instructions": true
+  },
+  "files.trimTrailingWhitespace": true,
+  "editor.formatOnPaste": false
+}

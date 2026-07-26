@@ -1,0 +1,7 @@
+{
+  "schema": 1,
+  "instructions": [
+    "assured-arc-general-agent.instructions.md",
+    "assured-arc-agent-harness.instructions.md"
+  ]
+}

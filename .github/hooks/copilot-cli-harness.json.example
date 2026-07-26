@@ -1,0 +1,155 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "type": "command",
+        "bash": "python3 \"__HARNESS_HOOK_PY__\"",
+        "powershell": "pwsh -NoProfile -ExecutionPolicy Bypass -File \"__HARNESS_HOOK_PS1__\"",
+        "timeoutSec": 5,
+        "env": {
+          "ASSURED_ARC_HARNESS_CONFIG": "__HARNESS_CONFIG__",
+          "ASSURED_ARC_HARNESS_TRACE_DIR": "__HARNESS_TRACE_DIR__",
+          "ASSURED_ARC_HARNESS_TOOL_POLICY": "__HARNESS_TOOL_POLICY__",
+          "ASSURED_ARC_HARNESS_HOST": "copilot-cli",
+          "ASSURED_ARC_HARNESS_EVENT": "__HARNESS_EVENT__"
+        }
+      }
+    ],
+    "sessionEnd": [
+      {
+        "type": "command",
+        "bash": "python3 \"__HARNESS_HOOK_PY__\"",
+        "powershell": "pwsh -NoProfile -ExecutionPolicy Bypass -File \"__HARNESS_HOOK_PS1__\"",
+        "timeoutSec": 5,
+        "env": {
+          "ASSURED_ARC_HARNESS_CONFIG": "__HARNESS_CONFIG__",
+          "ASSURED_ARC_HARNESS_TRACE_DIR": "__HARNESS_TRACE_DIR__",
+          "ASSURED_ARC_HARNESS_TOOL_POLICY": "__HARNESS_TOOL_POLICY__",
+          "ASSURED_ARC_HARNESS_HOST": "copilot-cli",
+          "ASSURED_ARC_HARNESS_EVENT": "__HARNESS_EVENT__"
+        }
+      }
+    ],
+    "userPromptSubmitted": [
+      {
+        "type": "command",
+        "bash": "python3 \"__HARNESS_HOOK_PY__\"",
+        "powershell": "pwsh -NoProfile -ExecutionPolicy Bypass -File \"__HARNESS_HOOK_PS1__\"",
+        "timeoutSec": 5,
+        "env": {
+          "ASSURED_ARC_HARNESS_CONFIG": "__HARNESS_CONFIG__",
+          "ASSURED_ARC_HARNESS_TRACE_DIR": "__HARNESS_TRACE_DIR__",
+          "ASSURED_ARC_HARNESS_TOOL_POLICY": "__HARNESS_TOOL_POLICY__",
+          "ASSURED_ARC_HARNESS_HOST": "copilot-cli",
+          "ASSURED_ARC_HARNESS_EVENT": "__HARNESS_EVENT__"
+        }
+      }
+    ],
+    "preToolUse": [
+      {
+        "type": "command",
+        "bash": "python3 \"__HARNESS_HOOK_PY__\"",
+        "powershell": "pwsh -NoProfile -ExecutionPolicy Bypass -File \"__HARNESS_HOOK_PS1__\"",
+        "timeoutSec": 5,
+        "env": {
+          "ASSURED_ARC_HARNESS_CONFIG": "__HARNESS_CONFIG__",
+          "ASSURED_ARC_HARNESS_TRACE_DIR": "__HARNESS_TRACE_DIR__",
+          "ASSURED_ARC_HARNESS_TOOL_POLICY": "__HARNESS_TOOL_POLICY__",
+          "ASSURED_ARC_HARNESS_HOST": "copilot-cli",
+          "ASSURED_ARC_HARNESS_EVENT": "__HARNESS_EVENT__"
+        }
+      }
+    ],
+    "postToolUse": [
+      {
+        "type": "command",
+        "bash": "python3 \"__HARNESS_HOOK_PY__\"",
+        "powershell": "pwsh -NoProfile -ExecutionPolicy Bypass -File \"__HARNESS_HOOK_PS1__\"",
+        "timeoutSec": 5,
+        "env": {
+          "ASSURED_ARC_HARNESS_CONFIG": "__HARNESS_CONFIG__",
+          "ASSURED_ARC_HARNESS_TRACE_DIR": "__HARNESS_TRACE_DIR__",
+          "ASSURED_ARC_HARNESS_TOOL_POLICY": "__HARNESS_TOOL_POLICY__",
+          "ASSURED_ARC_HARNESS_HOST": "copilot-cli",
+          "ASSURED_ARC_HARNESS_EVENT": "__HARNESS_EVENT__"
+        }
+      }
+    ],
+    "postToolUseFailure": [
+      {
+        "type": "command",
+        "bash": "python3 \"__HARNESS_HOOK_PY__\"",
+        "powershell": "pwsh -NoProfile -ExecutionPolicy Bypass -File \"__HARNESS_HOOK_PS1__\"",
+        "timeoutSec": 5,
+        "env": {
+          "ASSURED_ARC_HARNESS_CONFIG": "__HARNESS_CONFIG__",
+          "ASSURED_ARC_HARNESS_TRACE_DIR": "__HARNESS_TRACE_DIR__",
+          "ASSURED_ARC_HARNESS_TOOL_POLICY": "__HARNESS_TOOL_POLICY__",
+          "ASSURED_ARC_HARNESS_HOST": "copilot-cli",
+          "ASSURED_ARC_HARNESS_EVENT": "__HARNESS_EVENT__"
+        }
+      }
+    ],
+    "preCompact": [
+      {
+        "type": "command",
+        "bash": "python3 \"__HARNESS_HOOK_PY__\"",
+        "powershell": "pwsh -NoProfile -ExecutionPolicy Bypass -File \"__HARNESS_HOOK_PS1__\"",
+        "timeoutSec": 5,
+        "env": {
+          "ASSURED_ARC_HARNESS_CONFIG": "__HARNESS_CONFIG__",
+          "ASSURED_ARC_HARNESS_TRACE_DIR": "__HARNESS_TRACE_DIR__",
+          "ASSURED_ARC_HARNESS_TOOL_POLICY": "__HARNESS_TOOL_POLICY__",
+          "ASSURED_ARC_HARNESS_HOST": "copilot-cli",
+          "ASSURED_ARC_HARNESS_EVENT": "__HARNESS_EVENT__"
+        }
+      }
+    ],
+    "subagentStart": [
+      {
+        "type": "command",
+        "bash": "python3 \"__HARNESS_HOOK_PY__\"",
+        "powershell": "pwsh -NoProfile -ExecutionPolicy Bypass -File \"__HARNESS_HOOK_PS1__\"",
+        "timeoutSec": 5,
+        "env": {
+          "ASSURED_ARC_HARNESS_CONFIG": "__HARNESS_CONFIG__",
+          "ASSURED_ARC_HARNESS_TRACE_DIR": "__HARNESS_TRACE_DIR__",
+          "ASSURED_ARC_HARNESS_TOOL_POLICY": "__HARNESS_TOOL_POLICY__",
+          "ASSURED_ARC_HARNESS_HOST": "copilot-cli",
+          "ASSURED_ARC_HARNESS_EVENT": "__HARNESS_EVENT__"
+        }
+      }
+    ],
+    "subagentStop": [
+      {
+        "type": "command",
+        "bash": "python3 \"__HARNESS_HOOK_PY__\"",
+        "powershell": "pwsh -NoProfile -ExecutionPolicy Bypass -File \"__HARNESS_HOOK_PS1__\"",
+        "timeoutSec": 5,
+        "env": {
+          "ASSURED_ARC_HARNESS_CONFIG": "__HARNESS_CONFIG__",
+          "ASSURED_ARC_HARNESS_TRACE_DIR": "__HARNESS_TRACE_DIR__",
+          "ASSURED_ARC_HARNESS_TOOL_POLICY": "__HARNESS_TOOL_POLICY__",
+          "ASSURED_ARC_HARNESS_HOST": "copilot-cli",
+          "ASSURED_ARC_HARNESS_EVENT": "__HARNESS_EVENT__"
+        }
+      }
+    ],
+    "agentStop": [
+      {
+        "type": "command",
+        "bash": "python3 \"__HARNESS_HOOK_PY__\"",
+        "powershell": "pwsh -NoProfile -ExecutionPolicy Bypass -File \"__HARNESS_HOOK_PS1__\"",
+        "timeoutSec": 5,
+        "env": {
+          "ASSURED_ARC_HARNESS_CONFIG": "__HARNESS_CONFIG__",
+          "ASSURED_ARC_HARNESS_TRACE_DIR": "__HARNESS_TRACE_DIR__",
+          "ASSURED_ARC_HARNESS_TOOL_POLICY": "__HARNESS_TOOL_POLICY__",
+          "ASSURED_ARC_HARNESS_HOST": "copilot-cli",
+          "ASSURED_ARC_HARNESS_EVENT": "__HARNESS_EVENT__"
+        }
+      }
+    ]
+  }
+}

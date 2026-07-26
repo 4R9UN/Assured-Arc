@@ -1,0 +1,25 @@
+name: Validate public Assured Arc package
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate PowerShell package lifecycle
+        shell: pwsh
+        run: ./tests/validate.ps1
+
+  ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Bash package lifecycle
+        shell: bash
+        run: ./tests/validate.sh

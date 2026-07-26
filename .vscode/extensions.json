@@ -1,0 +1,9 @@
+{
+  "recommendations": [
+    "github.copilot-chat",
+    "ms-python.python",
+    "ms-vscode.powershell",
+    "redhat.vscode-yaml",
+    "bierner.markdown-mermaid"
+  ]
+}

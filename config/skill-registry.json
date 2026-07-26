@@ -1,0 +1,220 @@
+{
+  "schema": 1,
+  "purpose": "Compact routing index for the public Assured Arc skill library.",
+  "routing": {
+    "defaultRouter": "assured-arc-skill-router",
+    "mandatoryForCodeChanges": ["assured-arc-development-quality"],
+    "maximumDomainSkills": 3,
+    "rules": [
+      "Use repository instructions and code as primary local context.",
+      "Select the most specific matching skill before broader skills.",
+      "Do not load the entire skill library into one task.",
+      "Re-route only when evidence shows the original classification was wrong."
+    ]
+  },
+  "categories": {
+    "core": [
+      "assured-arc-skill-router",
+      "assured-arc-development-quality",
+      "assured-arc-repository-onboarding",
+      "assured-arc-task-planning",
+      "assured-arc-agent-orchestration",
+      "assured-arc-context-efficiency"
+    ],
+    "design": [
+      "assured-arc-architecture-design"
+    ],
+    "implementation": [
+      "assured-arc-backend-api",
+      "assured-arc-frontend-accessibility",
+      "assured-arc-python-quality",
+      "assured-arc-data-sql",
+      "assured-arc-configuration-management"
+    ],
+    "quality": [
+      "assured-arc-debugging",
+      "assured-arc-testing",
+      "assured-arc-code-review",
+      "assured-arc-performance-reliability",
+      "assured-arc-security-privacy",
+      "assured-arc-error-handling",
+      "assured-arc-observability",
+      "assured-arc-agent-evaluation",
+      "ponytail"
+    ],
+    "delivery": [
+      "assured-arc-git-ci",
+      "assured-arc-dependency-evaluation",
+      "assured-arc-documentation-quality"
+    ],
+    "platform": [
+      "assured-arc-mcp-safety",
+      "assured-arc-obsidian-vault",
+      "assured-arc-harness-evolution"
+    ]
+  },
+  "skills": [
+    {
+      "id": "assured-arc-skill-router",
+      "category": "core",
+      "purpose": "Classify nontrivial requests and select the smallest useful skill set.",
+      "triggers": ["multi-step task", "cross-domain task", "which skill", "route task", "general task"]
+    },
+    {
+      "id": "assured-arc-development-quality",
+      "category": "core",
+      "purpose": "Enforce minimal design, surgical changes, and focused verification for code changes.",
+      "triggers": ["write code", "change code", "implement", "fix", "refactor", "review code"]
+    },
+    {
+      "id": "assured-arc-repository-onboarding",
+      "category": "core",
+      "purpose": "Guide safe installation, project onboarding, customization, validation, and rollback.",
+      "triggers": ["setup project", "new machine", "install", "onboard", "configure workspace"]
+    },
+    {
+      "id": "assured-arc-task-planning",
+      "category": "core",
+      "purpose": "Decompose complex outcomes into dependency-aware tasks with owners and verification checkpoints.",
+      "triggers": ["plan task", "complex project", "decompose work", "milestones", "parallel tasks", "coordinate agents"]
+    },
+    {
+      "id": "assured-arc-agent-orchestration",
+      "category": "core",
+      "purpose": "Compose bounded disposable subagents with focused skills, parallel read-only work, one writer, independent verification, and explicit stopping.",
+      "triggers": ["subagent", "multi-agent", "disposable agent", "orchestrate agents", "parallel workers", "planner worker", "delegate task"]
+    },
+    {
+      "id": "assured-arc-context-efficiency",
+      "category": "core",
+      "purpose": "Reduce token waste through progressive disclosure, trajectory pruning, lazy tools and skills, stable prefixes, and safe compaction state.",
+      "triggers": ["context efficiency", "context window", "token budget", "prompt caching", "compaction", "trajectory pruning", "tool search"]
+    },
+    {
+      "id": "assured-arc-architecture-design",
+      "category": "design",
+      "purpose": "Design boundaries, interfaces, data flow, deployment, and major refactors.",
+      "triggers": ["architecture", "system design", "data flow", "service boundary", "major refactor", "tradeoff"]
+    },
+    {
+      "id": "assured-arc-backend-api",
+      "category": "implementation",
+      "purpose": "Build backend services, APIs, validation, persistence, and background jobs.",
+      "triggers": ["backend", "API", "REST", "GraphQL", "authentication", "webhook", "worker"]
+    },
+    {
+      "id": "assured-arc-frontend-accessibility",
+      "category": "implementation",
+      "purpose": "Build responsive, accessible web interfaces and interaction states.",
+      "triggers": ["frontend", "component", "form", "responsive", "accessibility", "ARIA", "UI"]
+    },
+    {
+      "id": "assured-arc-python-quality",
+      "category": "implementation",
+      "purpose": "Apply repository-aware Python style, typing, packaging, testing, and resource safety.",
+      "triggers": ["Python", "pytest", "pyproject", "Python CLI", "type hints", "Python package"]
+    },
+    {
+      "id": "assured-arc-data-sql",
+      "category": "implementation",
+      "purpose": "Design schemas, SQL, indexes, migrations, and data quality validation.",
+      "triggers": ["SQL", "database", "schema", "migration", "index", "query plan", "data quality"]
+    },
+    {
+      "id": "assured-arc-configuration-management",
+      "category": "implementation",
+      "purpose": "Design validated settings, precedence, profiles, feature flags, environment behavior, and safe config merges.",
+      "triggers": ["configuration", "settings", "environment variable", "feature flag", "profile", "config merge", "defaults"]
+    },
+    {
+      "id": "assured-arc-debugging",
+      "category": "quality",
+      "purpose": "Reproduce failures, test hypotheses, identify root causes, and add regression coverage.",
+      "triggers": ["bug", "crash", "failure", "regression", "flaky", "unexpected", "root cause"]
+    },
+    {
+      "id": "assured-arc-testing",
+      "category": "quality",
+      "purpose": "Choose and implement unit, integration, end-to-end, regression, and lifecycle tests.",
+      "triggers": ["test", "unit test", "integration test", "end-to-end", "regression test", "test coverage"]
+    },
+    {
+      "id": "assured-arc-code-review",
+      "category": "quality",
+      "purpose": "Review diffs for correctness, regressions, security, maintainability, and excess complexity.",
+      "triggers": ["review diff", "review PR", "code review", "audit patch", "review changes"]
+    },
+    {
+      "id": "assured-arc-performance-reliability",
+      "category": "quality",
+      "purpose": "Measure and improve latency, throughput, memory, concurrency, and resilience.",
+      "triggers": ["performance", "latency", "throughput", "memory", "timeout", "retry", "reliability"]
+    },
+    {
+      "id": "assured-arc-security-privacy",
+      "category": "quality",
+      "purpose": "Apply least privilege, input validation, authorization, secret safety, and privacy boundaries.",
+      "triggers": ["security", "privacy", "secret", "authorization", "untrusted input", "personal data", "threat model"]
+    },
+    {
+      "id": "assured-arc-error-handling",
+      "category": "quality",
+      "purpose": "Design explicit errors, safe cleanup, partial failure handling, retry boundaries, and stable error contracts.",
+      "triggers": ["error handling", "exception", "result type", "partial failure", "cleanup", "retry", "error contract"]
+    },
+    {
+      "id": "assured-arc-observability",
+      "category": "quality",
+      "purpose": "Design structured logs, metrics, traces, audit events, health checks, and actionable diagnostics.",
+      "triggers": ["logging", "metrics", "tracing", "observability", "health check", "audit event", "diagnostics"]
+    },
+    {
+      "id": "assured-arc-agent-evaluation",
+      "category": "quality",
+      "purpose": "Test agent loops with behavioral contracts, mocked tools, sanitized traces, repeated scenarios, budget checks, and regression baselines.",
+      "triggers": ["agent evaluation", "agent test", "behavioral contract", "golden scenario", "agent trace", "loop regression", "mocked tools"]
+    },
+    {
+      "id": "ponytail",
+      "category": "quality",
+      "purpose": "Find the simplest correct solution using YAGNI, standard-library-first choices, and deletion of overengineering.",
+      "triggers": ["ponytail", "simplest solution", "minimal code", "YAGNI", "stdlib first", "overengineering", "what can we delete"]
+    },
+    {
+      "id": "assured-arc-git-ci",
+      "category": "delivery",
+      "purpose": "Create reviewable Git workflows, CI checks, release gates, and least-privilege automation.",
+      "triggers": ["Git", "pull request", "GitHub Actions", "CI", "release", "branch", "workflow"]
+    },
+    {
+      "id": "assured-arc-dependency-evaluation",
+      "category": "delivery",
+      "purpose": "Evaluate libraries, extensions, actions, skills, and MCP servers before adoption.",
+      "triggers": ["dependency", "library", "extension", "package", "upgrade", "third party", "evaluate tool", "Context7", "Sequential Thinking", "arXiv"]
+    },
+    {
+      "id": "assured-arc-documentation-quality",
+      "category": "delivery",
+      "purpose": "Create accurate README files, tutorials, architecture docs, examples, and runbooks.",
+      "triggers": ["documentation", "README", "tutorial", "runbook", "architecture document", "guide"]
+    },
+    {
+      "id": "assured-arc-mcp-safety",
+      "category": "platform",
+      "purpose": "Configure and review the Context7, Sequential Thinking, and arXiv research MCP profile, including transport, scope, endpoint trust, local storage, and rollback.",
+      "triggers": ["MCP", "MCP server", "research MCP", "Context7", "Sequential Thinking", "arXiv", "stdio", "MCP authentication"]
+    },
+    {
+      "id": "assured-arc-obsidian-vault",
+      "category": "platform",
+      "purpose": "Create and maintain portable Markdown knowledge vaults and project context.",
+      "triggers": ["Obsidian", "vault", "MOC", "wikilink", "project notes", "knowledge base"]
+    },
+    {
+      "id": "assured-arc-harness-evolution",
+      "category": "platform",
+      "purpose": "Improve prompts, tools, hooks, skills, subagents, middleware, and memory through isolated evidence-driven evaluate-analyze-improve-verify cycles.",
+      "triggers": ["harness evolution", "improve agent harness", "self-improving agent", "change manifest", "evaluate analyze improve", "agentic harness engineering"]
+    }
+  ]
+}

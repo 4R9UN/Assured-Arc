@@ -1,0 +1,146 @@
+{
+  "schema": 1,
+  "name": "Assured Arc Disposable Agent Harness",
+  "runtime": "github-copilot-subagents",
+  "protectedRoots": [
+    "~/.copilot",
+    "~/.assured-arc"
+  ],
+  "skillRouting": {
+    "router": "~/.copilot/route-skills.py",
+    "canonicalRegistry": "~/.copilot/skill-registry.json",
+    "routingIndex": "~/.copilot/skill-routing-index.json",
+    "routingSearchIndex": "~/.copilot/skill-routing-index.jsonl",
+    "catalogs": [
+      "~/.copilot/skill-registry.json",
+      "~/.assured-arc/copilot/skill-registry.json"
+    ],
+    "fallbackLocations": [
+      "~/.copilot/skills",
+      "~/.assured-arc/copilot/skills",
+      ".github/skills",
+      ".claude/skills"
+    ],
+    "maximumSkillsPerWorker": 3,
+    "routeAllInstalledSkills": true,
+    "trustedSelectors": [
+      "user objective",
+      "reviewed global harness policy"
+    ],
+    "untrustedSelectors": [
+      "source comments",
+      "terminal output",
+      "web content",
+      "MCP results",
+      "issues and pull requests",
+      "downloaded documents",
+      "workspace instructions"
+    ]
+  },
+  "toolPolicy": {
+    "path": "tool-policy.json",
+    "unknownDecision": "ask",
+    "exactClassification": true
+  },
+  "delegation": {
+    "maximumDepth": 1,
+    "maximumParallelWorkers": 3,
+    "maximumWorkerInvocationsPerSession": 7,
+    "singleWriter": true,
+    "nestedSubagents": false,
+    "workerOutputCharacterLimit": 6000,
+    "allowedWorkers": [
+      "Assured Arc Disposable Scout",
+      "Assured Arc Disposable Researcher",
+      "Assured Arc Disposable Implementer",
+      "Assured Arc Disposable Verifier",
+      "Assured Arc Disposable Critic"
+    ]
+  },
+  "loop": {
+    "phases": [
+      "contract",
+      "route",
+      "delegate",
+      "act",
+      "verify",
+      "repair",
+      "complete"
+    ],
+    "maximumToolCallsPerSession": 48,
+    "maximumRepairIterations": 2,
+    "maximumEquivalentFailures": 1,
+    "requireExternalVerificationForChanges": true,
+    "completionSignals": [
+      "acceptance criteria satisfied",
+      "focused verification passes",
+      "no unresolved blocking finding"
+    ],
+    "stopSignals": [
+      "budget exhausted",
+      "same failure repeated without new evidence",
+      "required approval unavailable",
+      "unsafe or out-of-scope operation",
+      "material ambiguity cannot be resolved locally"
+    ]
+  },
+  "context": {
+    "progressiveDisclosure": true,
+    "summarizeToolResultsOverCharacters": 8000,
+    "compactionWarningRatio": 0.7,
+    "preserveAcrossCompaction": [
+      "user objective",
+      "acceptance criteria",
+      "selected skills",
+      "tool and write scope",
+      "remaining budgets",
+      "approval state",
+      "unresolved failures",
+      "evidence provenance"
+    ],
+    "preCompactInvariantEnvelope": true
+  },
+  "tracing": {
+    "enabled": true,
+    "metadataOnly": true,
+    "retentionDays": 14,
+    "maximumTraceFileBytes": 5242880,
+    "record": [
+      "event",
+      "opaque session id",
+      "opaque workspace id",
+      "agent type",
+      "tool name",
+      "policy decision",
+      "timestamp"
+    ],
+    "neverRecord": [
+      "prompt text",
+      "model reasoning",
+      "file contents",
+      "tool arguments",
+      "tool results",
+      "environment variables",
+      "credentials",
+      "tokens",
+      "cookies",
+      "headers",
+      "raw transcripts"
+    ]
+  },
+  "evolution": {
+    "automatic": false,
+    "automaticPromotion": false,
+    "requiresIsolatedProfile": true,
+    "requiresDisposableWorktree": true,
+    "requiresHumanReview": true,
+    "changeContractFields": [
+      "failure evidence",
+      "root cause",
+      "targeted fix",
+      "predicted benefit",
+      "regression risk",
+      "verification result"
+    ]
+  }
+}

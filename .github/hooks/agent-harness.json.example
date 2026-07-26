@@ -1,0 +1,124 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "python3 \"__HARNESS_HOOK_PY__\"",
+        "windows": "pwsh -NoProfile -ExecutionPolicy Bypass -File \"__HARNESS_HOOK_PS1__\"",
+        "linux": "python3 \"__HARNESS_HOOK_PY__\"",
+        "osx": "python3 \"__HARNESS_HOOK_PY__\"",
+        "timeout": 5,
+        "env": {
+          "ASSURED_ARC_HARNESS_CONFIG": "__HARNESS_CONFIG__",
+          "ASSURED_ARC_HARNESS_TRACE_DIR": "__HARNESS_TRACE_DIR__",
+          "ASSURED_ARC_HARNESS_TOOL_POLICY": "__HARNESS_TOOL_POLICY__"
+        }
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "type": "command",
+        "command": "python3 \"__HARNESS_HOOK_PY__\"",
+        "windows": "pwsh -NoProfile -ExecutionPolicy Bypass -File \"__HARNESS_HOOK_PS1__\"",
+        "linux": "python3 \"__HARNESS_HOOK_PY__\"",
+        "osx": "python3 \"__HARNESS_HOOK_PY__\"",
+        "timeout": 5,
+        "env": {
+          "ASSURED_ARC_HARNESS_CONFIG": "__HARNESS_CONFIG__",
+          "ASSURED_ARC_HARNESS_TRACE_DIR": "__HARNESS_TRACE_DIR__",
+          "ASSURED_ARC_HARNESS_TOOL_POLICY": "__HARNESS_TOOL_POLICY__"
+        }
+      }
+    ],
+    "PreToolUse": [
+      {
+        "type": "command",
+        "command": "python3 \"__HARNESS_HOOK_PY__\"",
+        "windows": "pwsh -NoProfile -ExecutionPolicy Bypass -File \"__HARNESS_HOOK_PS1__\"",
+        "linux": "python3 \"__HARNESS_HOOK_PY__\"",
+        "osx": "python3 \"__HARNESS_HOOK_PY__\"",
+        "timeout": 5,
+        "env": {
+          "ASSURED_ARC_HARNESS_CONFIG": "__HARNESS_CONFIG__",
+          "ASSURED_ARC_HARNESS_TRACE_DIR": "__HARNESS_TRACE_DIR__",
+          "ASSURED_ARC_HARNESS_TOOL_POLICY": "__HARNESS_TOOL_POLICY__"
+        }
+      }
+    ],
+    "PostToolUse": [
+      {
+        "type": "command",
+        "command": "python3 \"__HARNESS_HOOK_PY__\"",
+        "windows": "pwsh -NoProfile -ExecutionPolicy Bypass -File \"__HARNESS_HOOK_PS1__\"",
+        "linux": "python3 \"__HARNESS_HOOK_PY__\"",
+        "osx": "python3 \"__HARNESS_HOOK_PY__\"",
+        "timeout": 5,
+        "env": {
+          "ASSURED_ARC_HARNESS_CONFIG": "__HARNESS_CONFIG__",
+          "ASSURED_ARC_HARNESS_TRACE_DIR": "__HARNESS_TRACE_DIR__",
+          "ASSURED_ARC_HARNESS_TOOL_POLICY": "__HARNESS_TOOL_POLICY__"
+        }
+      }
+    ],
+    "PreCompact": [
+      {
+        "type": "command",
+        "command": "python3 \"__HARNESS_HOOK_PY__\"",
+        "windows": "pwsh -NoProfile -ExecutionPolicy Bypass -File \"__HARNESS_HOOK_PS1__\"",
+        "linux": "python3 \"__HARNESS_HOOK_PY__\"",
+        "osx": "python3 \"__HARNESS_HOOK_PY__\"",
+        "timeout": 5,
+        "env": {
+          "ASSURED_ARC_HARNESS_CONFIG": "__HARNESS_CONFIG__",
+          "ASSURED_ARC_HARNESS_TRACE_DIR": "__HARNESS_TRACE_DIR__",
+          "ASSURED_ARC_HARNESS_TOOL_POLICY": "__HARNESS_TOOL_POLICY__"
+        }
+      }
+    ],
+    "SubagentStart": [
+      {
+        "type": "command",
+        "command": "python3 \"__HARNESS_HOOK_PY__\"",
+        "windows": "pwsh -NoProfile -ExecutionPolicy Bypass -File \"__HARNESS_HOOK_PS1__\"",
+        "linux": "python3 \"__HARNESS_HOOK_PY__\"",
+        "osx": "python3 \"__HARNESS_HOOK_PY__\"",
+        "timeout": 5,
+        "env": {
+          "ASSURED_ARC_HARNESS_CONFIG": "__HARNESS_CONFIG__",
+          "ASSURED_ARC_HARNESS_TRACE_DIR": "__HARNESS_TRACE_DIR__",
+          "ASSURED_ARC_HARNESS_TOOL_POLICY": "__HARNESS_TOOL_POLICY__"
+        }
+      }
+    ],
+    "SubagentStop": [
+      {
+        "type": "command",
+        "command": "python3 \"__HARNESS_HOOK_PY__\"",
+        "windows": "pwsh -NoProfile -ExecutionPolicy Bypass -File \"__HARNESS_HOOK_PS1__\"",
+        "linux": "python3 \"__HARNESS_HOOK_PY__\"",
+        "osx": "python3 \"__HARNESS_HOOK_PY__\"",
+        "timeout": 5,
+        "env": {
+          "ASSURED_ARC_HARNESS_CONFIG": "__HARNESS_CONFIG__",
+          "ASSURED_ARC_HARNESS_TRACE_DIR": "__HARNESS_TRACE_DIR__",
+          "ASSURED_ARC_HARNESS_TOOL_POLICY": "__HARNESS_TOOL_POLICY__"
+        }
+      }
+    ],
+    "Stop": [
+      {
+        "type": "command",
+        "command": "python3 \"__HARNESS_HOOK_PY__\"",
+        "windows": "pwsh -NoProfile -ExecutionPolicy Bypass -File \"__HARNESS_HOOK_PS1__\"",
+        "linux": "python3 \"__HARNESS_HOOK_PY__\"",
+        "osx": "python3 \"__HARNESS_HOOK_PY__\"",
+        "timeout": 5,
+        "env": {
+          "ASSURED_ARC_HARNESS_CONFIG": "__HARNESS_CONFIG__",
+          "ASSURED_ARC_HARNESS_TRACE_DIR": "__HARNESS_TRACE_DIR__",
+          "ASSURED_ARC_HARNESS_TOOL_POLICY": "__HARNESS_TOOL_POLICY__"
+        }
+      }
+    ]
+  }
+}

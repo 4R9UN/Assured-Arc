@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "servers": [
+    {
+      "id": "context7",
+      "source": "upstash/context7",
+      "version": "hosted",
+      "transport": "http",
+      "runtime": "remote",
+      "network": true,
+      "writesLocalData": false,
+      "notes": "Anonymous basic usage. Requests are sent to the hosted Context7 service."
+    },
+    {
+      "id": "sequential-thinking",
+      "source": "modelcontextprotocol/servers",
+      "version": "2026.7.4",
+      "transport": "stdio",
+      "runtime": "npx",
+      "network": true,
+      "writesLocalData": true,
+      "notes": "Thought logging is disabled. The pinned npx package may use the registry and local npm cache on first start."
+    },
+    {
+      "id": "arxiv",
+      "source": "blazickjp/arxiv-mcp-server",
+      "version": "0.5.1",
+      "transport": "stdio",
+      "runtime": "uv-tool",
+      "network": true,
+      "writesLocalData": true,
+      "notes": "Installed as an isolated package-managed uv tool. Stores papers locally. Paper content is untrusted external input."
+    }
+  ]
+}

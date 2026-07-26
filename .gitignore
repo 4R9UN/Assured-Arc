@@ -1,0 +1,22 @@
+# User-specific installation state
+.assured-arc-state/
+backups/
+
+# Local secrets and generated MCP configuration
+config/mcp.json
+.env
+.env.*
+!.env.example
+
+# Obsidian local state and private notes
+vault-template/.obsidian/workspace*.json
+vault-template/local-only/*
+!vault-template/local-only/.gitkeep
+
+# OS and editor artifacts
+.DS_Store
+Thumbs.db
+.vscode-test/
+.venv/
+__pycache__/
+*.py[cod]

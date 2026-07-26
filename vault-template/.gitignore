@@ -1,0 +1,5 @@
+local-only/*
+!local-only/.gitkeep
+.obsidian/workspace*.json
+.obsidian/cache/
+.trash/
