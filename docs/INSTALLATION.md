@@ -81,7 +81,7 @@ After installation, run **Chat: Open Customizations** or open Chat diagnostics a
 
 1. Assured Arc Orchestrator is visible.
 2. Disposable workers are hidden but load without errors.
-3. The seven package prompts appear in the slash menu.
+3. The six package prompts appear in the slash menu.
 4. Package skills appear alongside existing personal skills.
 5. The package hook file is loaded from the managed profile.
 

@@ -16,7 +16,7 @@ It is intended for developers, teams, workshops, and maintainers who need the sa
 | Agents | 7 visible specialists plus 5 hidden disposable workers |
 | Hosts | VS Code by default, plus explicit personal-profile installation for GitHub Copilot CLI |
 | Orchestration | Native GitHub Copilot coordinator, one writer, depth one, up to 3 concurrent workers, independent verification, and bounded repair |
-| Skills and prompts | 27 portable lazy-loaded skills and 7 VS Code reusable prompts |
+| Skills and prompts | 27 portable lazy-loaded skills and 6 VS Code reusable prompts |
 | MCP research | Context7, Sequential Thinking `2026.7.4`, and isolated arXiv MCP `0.5.1` |
 | Knowledge | Optional portable Markdown and Obsidian vault template |
 | Safety | Least privilege tool scopes, protected global paths, state integrity, metadata-only traces, public safety checks, and explicit approval boundaries |
@@ -166,7 +166,7 @@ Clone the repository, inspect the dry run, then run the installer.
 ### Windows
 
 ```powershell
-git clone https://github.com/<your-org>/assured-arc.git
+git clone https://github.com/4R9UN/assured-arc.git
 Set-Location assured-arc
 .\install.ps1 -DryRun
 .\install.ps1
@@ -176,7 +176,7 @@ Set-Location assured-arc
 ### macOS and Linux
 
 ```bash
-git clone https://github.com/<your-org>/assured-arc.git
+git clone https://github.com/4R9UN/assured-arc.git
 cd assured-arc
 bash install/assured-arc.sh --dry-run
 bash install/assured-arc.sh
@@ -190,7 +190,7 @@ The default install creates `~/.assured-arc` for state, backups, managed skills,
 After installation, restart or reload the selected hosts, then verify:
 
 1. **Assured Arc Orchestrator** appears in the agent picker.
-2. The seven package prompts appear in the slash-command menu.
+2. The six package prompts appear in the slash-command menu.
 3. Context7, Sequential Thinking, and arXiv appear under **MCP: List Servers**.
 4. The state file exists under `~/.assured-arc/state.json`.
 5. Chat customization diagnostics show no errors for package agents, prompts, skills, or hooks.

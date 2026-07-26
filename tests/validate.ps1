@@ -247,12 +247,14 @@ try {
     $cliManaged = Join-Path $cliSandbox 'managed'
     $cliRoot = Join-Path $cliSandbox 'cli-home'
     New-Item -ItemType Directory -Path $cliRoot -Force | Out-Null
+    $fakeCopilot = Join-Path $cliSandbox 'copilot.cmd'
+    Set-Content -LiteralPath $fakeCopilot -Encoding Ascii -Value "@echo off`r`nexit /b 0"
     $existingCliSettings = [ordered]@{ keep = 'user-value'; skillDirectories = @((Join-Path $cliSandbox 'existing-skills')) }
     $existingCliSettings | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $cliRoot 'settings.json') -Encoding utf8
     $existingCliMcp = [ordered]@{ mcpServers = [ordered]@{ unrelated = [ordered]@{ type = 'http'; url = 'https://example.invalid/mcp'; tools = @('*') } } }
     $existingCliMcp | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $cliRoot 'mcp-config.json') -Encoding utf8
 
-    & (Join-Path $repoRoot 'install.ps1') -InstallCopilotCli -SkipMcp -SkipExtensions -SkipVault -ProfileRoot $cliProfile -VsCodeUserDirectory $cliVsCode -CopilotRoot $cliManaged -CopilotCliRoot $cliRoot | Out-Host
+    & (Join-Path $repoRoot 'install.ps1') -InstallCopilotCli -SkipMcp -SkipExtensions -SkipVault -ProfileRoot $cliProfile -VsCodeUserDirectory $cliVsCode -CopilotRoot $cliManaged -CopilotCliRoot $cliRoot -CopilotCliCommand $fakeCopilot | Out-Host
     $cliState = Get-Content -LiteralPath (Join-Path $cliProfile 'state.json') -Raw | ConvertFrom-Json
     Test-Condition -Condition ($cliState.schema -eq 4 -and $cliState.copilotCli.enabled) -Message 'PowerShell state records Copilot CLI ownership with schema 4'
     Test-Condition -Condition (Test-Path -LiteralPath (Join-Path $cliRoot 'agents/assured-arc-orchestrator.agent.md')) -Message 'PowerShell installs agents into the Copilot CLI user profile'
@@ -265,7 +267,7 @@ try {
     $cliVsCodeSettings = Get-Content -LiteralPath (Join-Path $cliVsCode 'settings.json') -Raw | ConvertFrom-Json
     Test-Condition -Condition (@($cliVsCodeSettings.'chat.agentFilesLocations'.PSObject.Properties.Name)[0] -like '*/cli-home/agents') -Message 'VS Code and Copilot CLI share the CLI-native agent directory'
 
-    & (Join-Path $repoRoot 'install.ps1') -InstallCopilotCli -SkipMcp -SkipExtensions -SkipVault -ProfileRoot $cliProfile -VsCodeUserDirectory $cliVsCode -CopilotRoot $cliManaged -CopilotCliRoot $cliRoot | Out-Null
+    & (Join-Path $repoRoot 'install.ps1') -InstallCopilotCli -SkipMcp -SkipExtensions -SkipVault -ProfileRoot $cliProfile -VsCodeUserDirectory $cliVsCode -CopilotRoot $cliManaged -CopilotCliRoot $cliRoot -CopilotCliCommand $fakeCopilot | Out-Null
     $cliSettings = Get-Content -LiteralPath (Join-Path $cliRoot 'settings.json') -Raw | ConvertFrom-Json
     Test-Condition -Condition (@($cliSettings.skillDirectories).Count -eq 2) -Message 'PowerShell repeated CLI install remains idempotent'
 
