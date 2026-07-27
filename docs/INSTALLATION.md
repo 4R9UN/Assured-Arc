@@ -27,10 +27,22 @@ The diagram summarizes the reversible lifecycle. The scripts, manifests, state f
 
 The default managed customization root is `~/.assured-arc/copilot`. VS Code settings point to its agents, prompts, skills, instructions, and hook file. Existing personal skills under `~/.copilot/skills` remain available through normal VS Code discovery and are not overwritten.
 
+## Install profiles
+
+| Profile | Extensions | MCP | Vault | Personal Copilot CLI |
+| --- | --- | --- | --- | --- |
+| `Minimal` | No | No | No | No |
+| `Research` | No | Yes | No | No |
+| `Full` | Yes | Yes | Yes | No |
+| `CopilotCli` | No | Yes | No | Yes |
+
+`Full` is the default. Select a profile with `-Profile Minimal` or `--profile Minimal`. Explicit component switches override the profile. Explicit component booleans in a supplied JSON configuration override its selected profile. Unknown profile names fail before installation.
+
 ## Windows example
 
 ```powershell
 .\install.ps1 -DryRun
+.\install.ps1 -Profile Minimal
 .\install.ps1 -VaultPath "$HOME\Documents\Development Vault"
 .\install.ps1 -InstallCopilotCli
 ```
@@ -39,6 +51,7 @@ The default managed customization root is `~/.assured-arc/copilot`. VS Code sett
 
 ```bash
 bash install/assured-arc.sh --dry-run
+bash install/assured-arc.sh --profile Research
 bash install/assured-arc.sh --vault-path "$HOME/Development Vault"
 bash install/assured-arc.sh --install-copilot-cli
 ```
@@ -81,7 +94,7 @@ After installation, run **Chat: Open Customizations** or open Chat diagnostics a
 
 1. Assured Arc Orchestrator is visible.
 2. Disposable workers are hidden but load without errors.
-3. The seven package prompts appear in the slash menu.
+3. The six package prompts appear in the slash menu.
 4. Package skills appear alongside existing personal skills.
 5. The package hook file is loaded from the managed profile.
 
@@ -94,6 +107,34 @@ Pull the latest repository version and rerun the installer. Managed files are ov
 For a profile created before the Assured Arc rebrand, run the uninstall script from the matching installed version, or pass the exact prior profile root explicitly. Then install Assured Arc into `~/.assured-arc`. Do not copy or move the prior state file.
 
 The installer does not migrate one state profile to a different MCP ownership target. Uninstall the existing profile first when relocating an MCP configuration.
+
+## Doctor
+
+Doctor is read-only and works before or after installation. Before installation it reports absent optional state without failing or guessing which optional components will be selected. After installation it validates state JSON, checksum when required, commands needed by recorded components, recorded managed files, and recorded MCP runtime.
+
+```powershell
+pwsh -File install/doctor.ps1 -ProfileRoot <profile-root>
+```
+
+```bash
+bash install/doctor.sh --profile-root <profile-root>
+```
+
+Stable `PASS` and `FAIL` labels support automation. Exit code `0` means healthy and `1` means a required check failed. Doctor never repairs files or prints resolved profile paths.
+
+## Legacy migration planner
+
+The planner reads a legacy profile state and reports schema recognition, optional checksum validity, absolute ownership paths, managed component counts, safe MCP IDs, and target conflict status. It does not uninstall, install, move, or copy anything.
+
+```powershell
+pwsh -File install/migrate-legacy.ps1 -LegacyProfileRoot <legacy-root> -TargetProfileRoot <target-root>
+```
+
+```bash
+bash install/migrate-legacy.sh --legacy-profile-root <legacy-root> --target-profile-root <target-root>
+```
+
+A valid plan exits `0` and prints sanitized next commands. Invalid state, unsupported schema, checksum failure, relative ownership, or a nonempty target exits `1`.
 
 ## Removal
 

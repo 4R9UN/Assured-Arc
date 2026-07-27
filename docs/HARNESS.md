@@ -96,6 +96,8 @@ The local trace records only:
 
 It does not record prompts, reasoning, file content, tool arguments, tool results, environment values, credentials, tokens, cookies, headers, or raw transcripts. Trace files stay under the managed local profile, have a size limit, and expire after the configured retention period.
 
+Terminal events also create one atomic JSON run receipt under the existing trace directory. A receipt is restricted to schema, timestamp, opaque session and workspace hashes, host, aggregate worker counts, aggregate tool count, aggregate policy decision counts, and completion status. VS Code `Stop` and Copilot CLI `sessionEnd` represent completed runs. Copilot CLI `agentStop` records an agent-stopped receipt without clearing session state. Receipts use the same retention period and never contain prompts, objectives, paths, output, arguments, results, errors, environment values, or transcripts.
+
 Hooks ask before dependency installation, publishing, global configuration, destructive commands, and infrastructure changes. Clearly dangerous system operations are denied. The installer renders the actual managed roots into the policy, and installed agents cannot edit those roots during a daily run.
 
 ## Harness evolution
@@ -142,6 +144,7 @@ The package validates:
 - protected global harness paths
 - approval for destructive and global operations
 - trace field allowlisting and secret redaction
+- terminal receipt allowlisting, hashing, redaction, and atomic creation
 - install, repeat install, rollback, uninstall, and settings cleanup
 - skill registry parity and prompt references
 

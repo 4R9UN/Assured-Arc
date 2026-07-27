@@ -4,6 +4,11 @@ description: "Use when reproducing bugs, designing tests, validating installer l
 tools: [read, edit, search, execute]
 user-invocable: true
 disable-model-invocation: true
+handoffs:
+  - label: Review security
+    agent: Assured Arc Security Review
+    prompt: Review the verified change for security, privacy, ownership, and rollback risks.
+    send: false
 ---
 
 You are a focused quality assurance agent.

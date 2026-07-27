@@ -25,6 +25,29 @@ function Write-HookOutput {
     [Console]::Out.Write(($Value | ConvertTo-Json -Compress -Depth 20))
 }
 
+function Write-RunReceipt {
+    param([string]$TraceRoot, [string]$Session, [string]$Workspace, [string]$HostName, $State, [string]$Status)
+    $directory = Join-Path $TraceRoot 'receipts'
+    New-Item -ItemType Directory -Path $directory -Force | Out-Null
+    $target = Join-Path $directory ((Get-Date).ToUniversalTime().Ticks.ToString() + "-$Session.json")
+    $temporary = "$target.$PID.tmp"
+    $counts = [ordered]@{}
+    foreach ($property in $State.decision_counts.PSObject.Properties | Sort-Object Name) { $counts[$property.Name] = [int]$property.Value }
+    $receipt = [ordered]@{
+        schema = 1
+        timestamp = (Get-Date).ToUniversalTime().ToString('o')
+        session = $Session
+        workspace = $Workspace
+        host = $HostName
+        workerCounts = [ordered]@{ started = [int]$State.subagents_started; writers = [int]$State.writer_invocations }
+        toolCount = [int]$State.tool_calls
+        policyDecisionCounts = $counts
+        completionStatus = $Status
+    }
+    [IO.File]::WriteAllText($temporary, ($receipt | ConvertTo-Json -Compress -Depth 5) + [Environment]::NewLine, [Text.UTF8Encoding]::new($false))
+    Move-Item -LiteralPath $temporary -Destination $target
+}
+
 function Test-Pattern {
     param([string]$Text, [string[]]$Patterns)
     foreach ($pattern in $Patterns) { if ($Text -match $pattern) { return $true } }
@@ -65,7 +88,7 @@ function ConvertTo-HostResponse {
 $raw = [Console]::In.ReadToEnd()
 try { $event = if ([string]::IsNullOrWhiteSpace($raw)) { [pscustomobject]@{} } else { $raw | ConvertFrom-Json } }
 catch { [Console]::Error.WriteLine('Agent harness hook failed: invalid JSON input'); exit 2 }
-$hostName = if ($env:ASSURED_ARC_HARNESS_HOST) { $env:ASSURED_ARC_HARNESS_HOST.ToLowerInvariant() } else { 'vscode' }
+$hostName = if ($env:ASSURED_ARC_HARNESS_HOST -and $env:ASSURED_ARC_HARNESS_HOST.ToLowerInvariant() -eq 'copilot-cli') { 'copilot-cli' } else { 'vscode' }
 $configPath = if ($env:ASSURED_ARC_HARNESS_CONFIG) { $env:ASSURED_ARC_HARNESS_CONFIG } else { Join-Path $HOME '.copilot\agent-harness.json' }
 $traceRoot = if ($env:ASSURED_ARC_HARNESS_TRACE_DIR) { $env:ASSURED_ARC_HARNESS_TRACE_DIR } else { Join-Path $HOME '.assured-arc\harness-runs' }
 $toolPolicyPath = if ($env:ASSURED_ARC_HARNESS_TOOL_POLICY) { $env:ASSURED_ARC_HARNESS_TOOL_POLICY } else { Join-Path (Split-Path -Parent $configPath) 'tool-policy.json' }
@@ -123,16 +146,18 @@ try {
         tool_calls = 0
         writer_invocations = 0
         failure_counts = [pscustomobject]@{}
+        decision_counts = [pscustomobject]@{}
     })
     foreach ($property in @('subagents_started', 'tool_calls', 'writer_invocations')) {
         if ($state.PSObject.Properties.Name -notcontains $property) { $state | Add-Member -NotePropertyName $property -NotePropertyValue 0 }
     }
     if ($state.PSObject.Properties.Name -notcontains 'active_workers') { $state | Add-Member -NotePropertyName active_workers -NotePropertyValue @() }
     if ($state.PSObject.Properties.Name -notcontains 'failure_counts') { $state | Add-Member -NotePropertyName failure_counts -NotePropertyValue ([pscustomobject]@{}) }
+    if ($state.PSObject.Properties.Name -notcontains 'decision_counts') { $state | Add-Member -NotePropertyName decision_counts -NotePropertyValue ([pscustomobject]@{}) }
 
     switch ($eventName) {
         'SessionStart' {
-            $state = [pscustomobject]@{ subagents_started = 0; active_workers = @(); tool_calls = 0; writer_invocations = 0; failure_counts = [pscustomobject]@{} }
+            $state = [pscustomobject]@{ subagents_started = 0; active_workers = @(); tool_calls = 0; writer_invocations = 0; failure_counts = [pscustomobject]@{}; decision_counts = [pscustomobject]@{} }
             $response = [ordered]@{
                 hookSpecificOutput = [ordered]@{
                     hookEventName = 'SessionStart'
@@ -344,6 +369,10 @@ try {
         }
     }
 
+    $decisionProperty = $state.decision_counts.PSObject.Properties[$decision]
+    $decisionValue = if ($decisionProperty) { [int]$decisionProperty.Value } else { 0 }
+    $state.decision_counts | Add-Member -NotePropertyName $decision -NotePropertyValue ($decisionValue + 1) -Force
+
     $temporary = "$statePath.$PID.tmp"
     [IO.File]::WriteAllText($temporary, ($state | ConvertTo-Json -Compress), [Text.UTF8Encoding]::new($false))
     Move-Item -LiteralPath $temporary -Destination $statePath -Force
@@ -365,6 +394,7 @@ try {
         $cutoff = (Get-Date).ToUniversalTime().AddDays(-[Math]::Max(1, $retention))
         Get-ChildItem -LiteralPath $traceRoot -Filter '*.jsonl' -File -ErrorAction SilentlyContinue | Where-Object LastWriteTimeUtc -lt $cutoff | Remove-Item -Force -ErrorAction SilentlyContinue
         Get-ChildItem -LiteralPath (Join-Path $traceRoot 'state') -File -ErrorAction SilentlyContinue | Where-Object LastWriteTimeUtc -lt $cutoff | Remove-Item -Force -ErrorAction SilentlyContinue
+        Get-ChildItem -LiteralPath (Join-Path $traceRoot 'receipts') -File -ErrorAction SilentlyContinue | Where-Object LastWriteTimeUtc -lt $cutoff | Remove-Item -Force -ErrorAction SilentlyContinue
     }
     if (-not ($config.PSObject.Properties.Name -contains 'tracing') -or $config.tracing.enabled -ne $false) {
         $tracePath = Join-Path $traceRoot ((Get-Date).ToUniversalTime().ToString('yyyy-MM-dd') + '.jsonl')
@@ -386,6 +416,14 @@ try {
     }
 }
 catch {}
+
+if ($eventName -in @('Stop', 'SessionEnd', 'AgentStop')) {
+    try {
+        $status = if ($eventName -in @('Stop', 'SessionEnd')) { 'completed' } else { 'agent-stopped' }
+        Write-RunReceipt -TraceRoot $traceRoot -Session $session -Workspace $workspace -HostName $hostName -State $state -Status $status
+    }
+    catch {}
+}
 
 if ($eventName -in @('Stop', 'SessionEnd')) {
     Remove-Item -LiteralPath $statePath -Force -ErrorAction SilentlyContinue

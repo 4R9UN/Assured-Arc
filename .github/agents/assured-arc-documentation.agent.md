@@ -4,6 +4,11 @@ description: "Use when writing or maintaining README files, tutorials, architect
 tools: [read, edit, search]
 user-invocable: true
 disable-model-invocation: true
+handoffs:
+  - label: Verify documentation
+    agent: Assured Arc QA
+    prompt: Verify documentation claims, links, examples, and affected validation contracts.
+    send: false
 ---
 
 You write accurate, accessible documentation for this public package.

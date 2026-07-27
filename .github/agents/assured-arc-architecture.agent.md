@@ -4,6 +4,11 @@ description: "Use when planning system boundaries, APIs, data flow, deployment, 
 tools: [read, edit, search, web]
 user-invocable: true
 disable-model-invocation: true
+handoffs:
+  - label: Start implementation
+    agent: Assured Arc Development
+    prompt: Implement the approved architecture with the smallest verified change.
+    send: false
 ---
 
 You are a pragmatic architecture agent.

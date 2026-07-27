@@ -26,9 +26,10 @@ function Test-PowerShellSyntax {
 $required = @(
     'README.md', 'LICENSE', 'CONTRIBUTING.md', 'SECURITY.md', 'docs/HARNESS.md', 'install.ps1',
     'install/assured-arc.ps1', 'install/uninstall.ps1', 'install/assured-arc.sh', 'install/uninstall.sh',
+    'install/doctor.ps1', 'install/doctor.sh', 'install/migrate-legacy.ps1', 'install/migrate-legacy.sh',
     'hooks/harness-event.ps1', 'hooks/harness_event.py', 'tests/harness_contracts.py', 'tests/harness_evaluator.py',
     'config/extensions.json', 'config/user-settings.json', 'config/assured-arc.example.json', 'config/instructions.json', 'config/skill-registry.json', 'config/mcp-servers.json',
-    'config/agent-harness.json', 'config/tool-policy.json', 'config/harness-evaluation-fixtures.json',
+    'config/agent-harness.json', 'config/tool-policy.json', 'config/harness-evaluation-fixtures.json', 'config/install-profiles.json',
     'mcp/mcp.json.example', 'mcp/copilot-cli.mcp.json.example',
     '.github/hooks/agent-harness.json.example', '.github/hooks/copilot-cli-harness.json.example',
     '.github/instructions/assured-arc-general-agent.instructions.md', '.github/instructions/assured-arc-agent-harness.instructions.md',
@@ -41,11 +42,11 @@ foreach ($relative in $required) {
     Test-Condition -Condition (Test-Path -LiteralPath (Join-Path $repoRoot $relative)) -Message "Required file exists: $relative"
 }
 
-foreach ($relative in @('install.ps1', 'install/assured-arc.ps1', 'install/uninstall.ps1', 'hooks/harness-event.ps1')) {
+foreach ($relative in @('install.ps1', 'install/assured-arc.ps1', 'install/uninstall.ps1', 'install/doctor.ps1', 'install/migrate-legacy.ps1', 'hooks/harness-event.ps1')) {
     Test-PowerShellSyntax -Path (Join-Path $repoRoot $relative)
 }
 
-foreach ($relative in @('config/extensions.json', 'config/user-settings.json', 'config/assured-arc.example.json', 'config/instructions.json', 'config/skill-registry.json', 'config/mcp-servers.json', 'config/agent-harness.json', 'config/tool-policy.json', 'config/harness-evaluation-fixtures.json', '.github/hooks/agent-harness.json.example', '.github/hooks/copilot-cli-harness.json.example', 'mcp/mcp.json.example', 'mcp/copilot-cli.mcp.json.example')) {
+foreach ($relative in @('config/extensions.json', 'config/user-settings.json', 'config/assured-arc.example.json', 'config/instructions.json', 'config/skill-registry.json', 'config/mcp-servers.json', 'config/agent-harness.json', 'config/tool-policy.json', 'config/harness-evaluation-fixtures.json', 'config/install-profiles.json', '.github/hooks/agent-harness.json.example', '.github/hooks/copilot-cli-harness.json.example', 'mcp/mcp.json.example', 'mcp/copilot-cli.mcp.json.example')) {
     try {
         Get-Content -LiteralPath (Join-Path $repoRoot $relative) -Raw | ConvertFrom-Json | Out-Null
         Test-Condition -Condition $true -Message "JSON parses: $relative"
@@ -57,6 +58,15 @@ $extensionManifest = Get-Content -LiteralPath (Join-Path $repoRoot 'config/exten
 $extensionIds = @($extensionManifest.extensions.id)
 $powerShellInstaller = Get-Content -LiteralPath (Join-Path $repoRoot 'install/assured-arc.ps1') -Raw
 $bashInstaller = Get-Content -LiteralPath (Join-Path $repoRoot 'install/assured-arc.sh') -Raw
+$profiles = Get-Content -LiteralPath (Join-Path $repoRoot 'config/install-profiles.json') -Raw | ConvertFrom-Json
+Test-Condition -Condition ($profiles.default -eq 'Full') -Message 'Full is the default install profile'
+Test-Condition -Condition ((@($profiles.profiles.PSObject.Properties.Name) -join '|') -eq 'Minimal|Research|Full|CopilotCli') -Message 'Install profile names are fixed'
+Test-Condition -Condition ($profiles.profiles.Full.installExtensions -and $profiles.profiles.Full.installMcp -and $profiles.profiles.Full.installVault -and -not $profiles.profiles.Full.installCopilotCli) -Message 'Full profile preserves current defaults'
+Test-Condition -Condition ((Get-Content -LiteralPath (Join-Path $repoRoot '.github/workflows/validate.yml') -Raw) -match 'run:\s+bash ./tests/validate\.sh') -Message 'Ubuntu workflow invokes Bash explicitly'
+foreach ($relative in @('install/doctor.ps1', 'install/doctor.sh', 'install/migrate-legacy.ps1', 'install/migrate-legacy.sh')) {
+    $text = Get-Content -LiteralPath (Join-Path $repoRoot $relative) -Raw
+    Test-Condition -Condition ($text -notmatch '(?i)remove-item|\brm\s|uninstall\.ps1\s+-|uninstall\.sh\s+--') -Message "Read-only lifecycle helper has no mutation command: $relative"
+}
 Test-Condition -Condition ($extensionIds -contains 'github.copilot-chat') -Message 'Extension manifest includes the current built-in Copilot extension'
 Test-Condition -Condition ($extensionIds -notcontains 'github.copilot') -Message 'Extension manifest excludes the deprecated standalone Copilot extension'
 Test-Condition -Condition ((@($extensionManifest.extensions | Where-Object id -eq 'github.copilot-chat')[0].install) -eq $false) -Message 'Built-in Copilot Chat is validated as a capability and not installed by the package'
@@ -165,8 +175,17 @@ try {
     $secret = 'SHOULD-NOT-APPEAR-IN-TRACE'
     $promptEvent = [ordered]@{ timestamp = '2026-01-01T00:00:00Z'; cwd = $repoRoot; session_id = 'powershell-redaction'; hook_event_name = 'UserPromptSubmit'; prompt = $secret }
     [void](($promptEvent | ConvertTo-Json -Compress -Depth 10) | & pwsh -NoProfile -File $hookScript | Out-String)
+    $stopEvent = [ordered]@{ timestamp = '2026-01-01T00:00:00Z'; cwd = $repoRoot; session_id = 'powershell-redaction'; hook_event_name = 'Stop'; output = $secret }
+    [void](($stopEvent | ConvertTo-Json -Compress -Depth 10) | & pwsh -NoProfile -File $hookScript | Out-String)
     $traceText = @(Get-ChildItem -LiteralPath $env:ASSURED_ARC_HARNESS_TRACE_DIR -Recurse -File | ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw }) -join "`n"
     Test-Condition -Condition ($traceText -notmatch [regex]::Escape($secret)) -Message 'PowerShell hook traces exclude prompt text'
+    $receipt = Get-ChildItem -LiteralPath (Join-Path $env:ASSURED_ARC_HARNESS_TRACE_DIR 'receipts') -Filter '*.json' | Select-Object -First 1 | Get-Content -Raw | ConvertFrom-Json
+    $receiptKeys = @($receipt.PSObject.Properties.Name | Sort-Object)
+    $expectedReceiptKeys = @('completionStatus', 'host', 'policyDecisionCounts', 'schema', 'session', 'timestamp', 'toolCount', 'workerCounts', 'workspace')
+    Test-Condition -Condition (($receiptKeys -join '|') -eq ($expectedReceiptKeys -join '|')) -Message 'PowerShell run receipt uses the exact privacy allowlist'
+    Test-Condition -Condition ((@($receipt.workerCounts.PSObject.Properties.Name | Sort-Object) -join '|') -eq 'started|writers') -Message 'PowerShell run receipt worker counts use the exact allowlist'
+    Test-Condition -Condition (@($receipt.policyDecisionCounts.PSObject.Properties.Name | Where-Object { $_ -notin @('allow', 'ask', 'deny', 'observe') }).Count -eq 0) -Message 'PowerShell run receipt policy counts use the exact allowlist'
+    Test-Condition -Condition (($receipt | ConvertTo-Json -Compress) -notmatch [regex]::Escape($repoRoot)) -Message 'PowerShell run receipt excludes workspace paths'
 }
 catch { Test-Condition -Condition $false -Message "PowerShell hook contracts pass: $($_.Exception.Message)" }
 finally {
@@ -177,12 +196,31 @@ finally {
 
 $dryProfile = Join-Path ([IO.Path]::GetTempPath()) ('assured-arc-test-' + [guid]::NewGuid().ToString('N'))
 try {
-    & (Join-Path $repoRoot 'install.ps1') -DryRun -SkipExtensions -SkipVault -SkipMcp -ProfileRoot $dryProfile -VsCodeUserDirectory (Join-Path $dryProfile 'vscode-user') -CopilotRoot (Join-Path $dryProfile 'copilot') | Out-Host
+    & (Join-Path $repoRoot 'install.ps1') -Profile Minimal -DryRun -ProfileRoot $dryProfile -VsCodeUserDirectory (Join-Path $dryProfile 'vscode-user') -CopilotRoot (Join-Path $dryProfile 'copilot') | Out-Host
     Test-Condition -Condition (-not (Test-Path -LiteralPath $dryProfile)) -Message 'PowerShell dry run creates no profile directory'
+    $unknownRejected = $false
+    try { & (Join-Path $repoRoot 'install.ps1') -Profile Unknown -DryRun -ProfileRoot $dryProfile | Out-Null }
+    catch { $unknownRejected = $_.Exception.Message -match 'Unknown install profile' }
+    Test-Condition -Condition $unknownRejected -Message 'PowerShell installer rejects unknown profiles'
 }
 catch {
     Test-Condition -Condition $false -Message "PowerShell dry run succeeds: $($_.Exception.Message)"
 }
+
+$helperSandbox = Join-Path ([IO.Path]::GetTempPath()) ('assured-arc-helpers-' + [guid]::NewGuid().ToString('N'))
+try {
+    & (Join-Path $repoRoot 'install/doctor.ps1') -ProfileRoot (Join-Path $helperSandbox 'absent') | Out-Host
+    Test-Condition -Condition ($LASTEXITCODE -eq 0) -Message 'PowerShell Doctor distinguishes absent optional state'
+    $legacy = Join-Path $helperSandbox 'legacy'
+    $target = Join-Path $helperSandbox 'target'
+    New-Item -ItemType Directory -Path $legacy -Force | Out-Null
+    $legacyState = [ordered]@{ schema = 2; profileRoot = $legacy; managed = @(); created = @(); backups = @(); extensions = @(); mcp = [ordered]@{ target = ''; serverIds = @(); inputIds = @() }; settings = [ordered]@{ target = '' }; copilotCli = [ordered]@{ enabled = $false; root = ''; settings = [ordered]@{ target = '' }; mcp = [ordered]@{ target = ''; serverIds = @() } } }
+    $legacyState | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $legacy 'state.json') -Encoding utf8
+    $plan = & (Join-Path $repoRoot 'install/migrate-legacy.ps1') -LegacyProfileRoot $legacy -TargetProfileRoot $target 6>&1 | Out-String
+    Test-Condition -Condition ($LASTEXITCODE -eq 0 -and $plan -match 'PASS LEGACY SCHEMA' -and $plan -notmatch [regex]::Escape($helperSandbox)) -Message 'PowerShell migration planner emits a valid sanitized plan'
+}
+catch { Test-Condition -Condition $false -Message "PowerShell lifecycle helpers pass: $($_.Exception.Message)" }
+finally { if (Test-Path -LiteralPath $helperSandbox) { Remove-Item -LiteralPath $helperSandbox -Recurse -Force } }
 
 $sandbox = Join-Path ([IO.Path]::GetTempPath()) ('assured-arc-install-' + [guid]::NewGuid().ToString('N'))
 $profile = Join-Path $sandbox 'profile'
@@ -194,6 +232,8 @@ try {
     Set-Content -LiteralPath (Join-Path $vscodeUser 'prompts/untouched.prompt.md') -Value 'existing user prompt' -NoNewline
     & (Join-Path $repoRoot 'install.ps1') -SkipMcp -SkipExtensions -ProfileRoot $profile -VaultPath $vault -VsCodeUserDirectory $vscodeUser -CopilotRoot $copilot | Out-Host
     Test-Condition -Condition (Test-Path -LiteralPath (Join-Path $profile 'state.json')) -Message 'PowerShell isolated install writes state'
+    & (Join-Path $repoRoot 'install/doctor.ps1') -ProfileRoot $profile | Out-Host
+    Test-Condition -Condition ($LASTEXITCODE -eq 0) -Message 'PowerShell Doctor accepts a healthy installed profile'
     Test-Condition -Condition (Test-Path -LiteralPath (Join-Path $copilot 'skills/assured-arc-development-quality/SKILL.md')) -Message 'PowerShell isolated install copies skills'
     Test-Condition -Condition (Test-Path -LiteralPath (Join-Path $copilot 'skill-registry.json')) -Message 'PowerShell isolated install copies skill registry'
     Test-Condition -Condition (Test-Path -LiteralPath (Join-Path $copilot 'agents/assured-arc-development.agent.md')) -Message 'PowerShell isolated install copies agents into the managed customization root'
@@ -247,12 +287,14 @@ try {
     $cliManaged = Join-Path $cliSandbox 'managed'
     $cliRoot = Join-Path $cliSandbox 'cli-home'
     New-Item -ItemType Directory -Path $cliRoot -Force | Out-Null
+    $fakeCopilot = Join-Path $cliSandbox 'copilot.cmd'
+    Set-Content -LiteralPath $fakeCopilot -Encoding Ascii -Value "@echo off`r`nexit /b 0"
     $existingCliSettings = [ordered]@{ keep = 'user-value'; skillDirectories = @((Join-Path $cliSandbox 'existing-skills')) }
     $existingCliSettings | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $cliRoot 'settings.json') -Encoding utf8
     $existingCliMcp = [ordered]@{ mcpServers = [ordered]@{ unrelated = [ordered]@{ type = 'http'; url = 'https://example.invalid/mcp'; tools = @('*') } } }
     $existingCliMcp | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $cliRoot 'mcp-config.json') -Encoding utf8
 
-    & (Join-Path $repoRoot 'install.ps1') -InstallCopilotCli -SkipMcp -SkipExtensions -SkipVault -ProfileRoot $cliProfile -VsCodeUserDirectory $cliVsCode -CopilotRoot $cliManaged -CopilotCliRoot $cliRoot | Out-Host
+    & (Join-Path $repoRoot 'install.ps1') -InstallCopilotCli -SkipMcp -SkipExtensions -SkipVault -ProfileRoot $cliProfile -VsCodeUserDirectory $cliVsCode -CopilotRoot $cliManaged -CopilotCliRoot $cliRoot -CopilotCliCommand $fakeCopilot | Out-Host
     $cliState = Get-Content -LiteralPath (Join-Path $cliProfile 'state.json') -Raw | ConvertFrom-Json
     Test-Condition -Condition ($cliState.schema -eq 4 -and $cliState.copilotCli.enabled) -Message 'PowerShell state records Copilot CLI ownership with schema 4'
     Test-Condition -Condition (Test-Path -LiteralPath (Join-Path $cliRoot 'agents/assured-arc-orchestrator.agent.md')) -Message 'PowerShell installs agents into the Copilot CLI user profile'
@@ -265,7 +307,7 @@ try {
     $cliVsCodeSettings = Get-Content -LiteralPath (Join-Path $cliVsCode 'settings.json') -Raw | ConvertFrom-Json
     Test-Condition -Condition (@($cliVsCodeSettings.'chat.agentFilesLocations'.PSObject.Properties.Name)[0] -like '*/cli-home/agents') -Message 'VS Code and Copilot CLI share the CLI-native agent directory'
 
-    & (Join-Path $repoRoot 'install.ps1') -InstallCopilotCli -SkipMcp -SkipExtensions -SkipVault -ProfileRoot $cliProfile -VsCodeUserDirectory $cliVsCode -CopilotRoot $cliManaged -CopilotCliRoot $cliRoot | Out-Null
+    & (Join-Path $repoRoot 'install.ps1') -InstallCopilotCli -SkipMcp -SkipExtensions -SkipVault -ProfileRoot $cliProfile -VsCodeUserDirectory $cliVsCode -CopilotRoot $cliManaged -CopilotCliRoot $cliRoot -CopilotCliCommand $fakeCopilot | Out-Null
     $cliSettings = Get-Content -LiteralPath (Join-Path $cliRoot 'settings.json') -Raw | ConvertFrom-Json
     Test-Condition -Condition (@($cliSettings.skillDirectories).Count -eq 2) -Message 'PowerShell repeated CLI install remains idempotent'
 

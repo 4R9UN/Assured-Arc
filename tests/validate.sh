@@ -2,7 +2,10 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-for script in "${ROOT}/install/assured-arc.sh" "${ROOT}/install/uninstall.sh"; do
+for relative in README.md config/install-profiles.json install/doctor.ps1 install/doctor.sh install/migrate-legacy.ps1 install/migrate-legacy.sh; do
+    [[ -f "${ROOT}/${relative}" ]] || { echo "FAIL required file: ${relative}" >&2; exit 1; }
+done
+for script in "${ROOT}/install/assured-arc.sh" "${ROOT}/install/uninstall.sh" "${ROOT}/install/doctor.sh" "${ROOT}/install/migrate-legacy.sh"; do
   bash -n "$script"
   echo "PASS shell syntax: $(basename "$script")"
 done
@@ -18,6 +21,7 @@ for rel in [
     'config/assured-arc.example.json', 'config/instructions.json', 'config/skill-registry.json', 'config/mcp-servers.json', 'mcp/mcp.json.example',
     'mcp/copilot-cli.mcp.json.example',
     'config/agent-harness.json', 'config/tool-policy.json', 'config/harness-evaluation-fixtures.json',
+    'config/install-profiles.json',
     '.github/hooks/agent-harness.json.example', '.github/hooks/copilot-cli-harness.json.example',
 ]:
     with open(os.path.join(root, rel), encoding='utf-8') as f: json.load(f)
@@ -31,6 +35,15 @@ if next(item for item in extensions if item['id'] == 'github.copilot-chat').get(
 if '--install-extension "$extension" --force' in open(os.path.join(root, 'install', 'assured-arc.sh'), encoding='utf-8').read():
     raise SystemExit('Bash installer forces extension replacement')
 print('PASS extension safety metadata')
+profiles = json.load(open(os.path.join(root, 'config', 'install-profiles.json'), encoding='utf-8'))
+assert profiles['default'] == 'Full'
+assert list(profiles['profiles']) == ['Minimal', 'Research', 'Full', 'CopilotCli']
+assert profiles['profiles']['Full'] == {'installExtensions': True, 'installMcp': True, 'installVault': True, 'installCopilotCli': False}
+workflow = open(os.path.join(root, '.github', 'workflows', 'validate.yml'), encoding='utf-8').read()
+assert 'run: bash ./tests/validate.sh' in workflow
+for rel in ('install/doctor.ps1', 'install/doctor.sh', 'install/migrate-legacy.ps1', 'install/migrate-legacy.sh'):
+    assert os.path.isfile(os.path.join(root, rel))
+print('PASS profiles and read-only lifecycle helpers')
 for name in os.listdir(os.path.join(root, '.github', 'skills')):
     skill = os.path.join(root, '.github', 'skills', name, 'SKILL.md')
     if not os.path.isfile(skill): raise SystemExit('Missing skill: ' + skill)
@@ -77,9 +90,28 @@ print('PASS MCP metadata')
 PY
 
 PROFILE="$(mktemp -d)/profile"
-bash "${ROOT}/install/assured-arc.sh" --dry-run --skip-extensions --skip-vault --skip-mcp --profile-root "$PROFILE"
+bash "${ROOT}/install/assured-arc.sh" --profile Minimal --dry-run --profile-root "$PROFILE"
 [[ ! -e "$PROFILE" ]]
 echo 'PASS Bash dry run creates no profile directory'
+set +e
+bash "${ROOT}/install/assured-arc.sh" --profile Unknown --dry-run --profile-root "$PROFILE" >/dev/null 2>&1
+UNKNOWN_STATUS=$?
+set -e
+[[ "$UNKNOWN_STATUS" -ne 0 ]]
+echo 'PASS Bash installer rejects unknown profiles'
+
+HELPER_SANDBOX="$(mktemp -d)"
+bash "${ROOT}/install/doctor.sh" --profile-root "${HELPER_SANDBOX}/absent" | grep -q '^PASS STATE:'
+mkdir -p "${HELPER_SANDBOX}/legacy"
+python3 - "${HELPER_SANDBOX}/legacy/state.json" "${HELPER_SANDBOX}/legacy" <<'PY'
+import json, sys
+json.dump({'schema': 2, 'profileRoot': sys.argv[2], 'managed': [], 'created': [], 'backups': [], 'extensions': [], 'settings': {'target': ''}, 'mcp': {'target': '', 'serverIds': [], 'inputIds': []}, 'copilotCli': {'enabled': False, 'root': '', 'settings': {'target': ''}, 'mcp': {'target': '', 'serverIds': []}}}, open(sys.argv[1], 'w'))
+PY
+PLAN="$(bash "${ROOT}/install/migrate-legacy.sh" --legacy-profile-root "${HELPER_SANDBOX}/legacy" --target-profile-root "${HELPER_SANDBOX}/target")"
+grep -q '^PASS LEGACY SCHEMA:' <<< "$PLAN"
+[[ "$PLAN" != *"$HELPER_SANDBOX"* ]]
+rm -rf "$HELPER_SANDBOX"
+echo 'PASS Bash Doctor and migration planner are read-only and sanitized'
 
 SANDBOX="$(mktemp -d)"
 PROFILE="${SANDBOX}/profile"

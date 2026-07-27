@@ -28,6 +28,14 @@ WORKERS = {
     "Assured Arc Disposable Verifier": ["read", "search", "execute"],
     "Assured Arc Disposable Critic": ["read", "search"],
 }
+HANDOFFS = {
+    "assured-arc-architecture.agent.md": "Assured Arc Development",
+    "assured-arc-research.agent.md": "Assured Arc Architecture",
+    "assured-arc-development.agent.md": "Assured Arc QA",
+    "assured-arc-qa.agent.md": "Assured Arc Security Review",
+    "assured-arc-security-review.agent.md": "Assured Arc Development",
+    "assured-arc-documentation.agent.md": "Assured Arc QA",
+}
 def load_json(relative: str) -> dict[str, Any]:
     with (ROOT / relative).open(encoding="utf-8") as stream:
         value = json.load(stream)
@@ -135,6 +143,18 @@ def validate_static_contracts() -> None:
 
     for agent_path in (ROOT / ".github/agents").glob("*.agent.md"):
         assert not any(line.startswith("\t") for line in frontmatter(agent_path).splitlines()), f"Tab-indented YAML: {agent_path.name}"
+
+    visible_names = {
+        field(frontmatter(path), "name").strip("'\"")
+        for path in (ROOT / ".github/agents").glob("*.agent.md")
+        if field(frontmatter(path), "user-invocable") == "true"
+    }
+    for filename, target in HANDOFFS.items():
+        block = frontmatter(ROOT / ".github/agents" / filename)
+        handoffs = block.split("handoffs:\n", 1)[1]
+        assert re.search(r"(?m)^\s+send:\s+false\s*$", handoffs), filename
+        assert re.search(rf"(?m)^\s+agent:\s+{re.escape(target)}\s*$", handoffs), filename
+        assert target in visible_names
 
     orchestrator = frontmatter(ROOT / ".github/agents/assured-arc-orchestrator.agent.md")
     assert inline_list(field(orchestrator, "tools")) == ["read", "search", "agent"]
@@ -420,6 +440,18 @@ def validate_python_hook() -> None:
         assert all(set(record) == allowed_keys for record in records)
 
         run_hook(script, event("Stop", "redaction-session", stop_hook_active=False), config, traces)
+        receipts = [json.loads(path.read_text(encoding="utf-8")) for path in (traces / "receipts").glob("*.json")]
+        assert receipts
+        receipt_keys = {
+            "schema", "timestamp", "session", "workspace", "host", "workerCounts",
+            "toolCount", "policyDecisionCounts", "completionStatus",
+        }
+        assert all(set(receipt) == receipt_keys for receipt in receipts)
+        assert all(set(receipt["workerCounts"]) == {"started", "writers"} for receipt in receipts)
+        assert all(set(receipt["policyDecisionCounts"]) <= {"allow", "ask", "deny", "observe"} for receipt in receipts)
+        assert all(receipt["host"] in {"vscode", "copilot-cli"} for receipt in receipts)
+        receipt_text = json.dumps(receipts)
+        assert secret not in receipt_text and str(ROOT) not in receipt_text
         state_files = list((traces / "state").glob("*.json"))
         assert all("redaction-session" not in path.name for path in state_files)
 

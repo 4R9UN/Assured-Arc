@@ -1,9 +1,6 @@
 {
+  "profile": "Full",
   "profileRoot": "",
   "vaultPath": "",
-  "installCopilotCli": false,
-  "installExtensions": true,
-  "installMcp": true,
-  "installVault": true,
   "forceSettings": false
 }

@@ -11,6 +11,7 @@
 #>
 [CmdletBinding()]
 param(
+    [string]$Profile,
     [string]$ProfileRoot = (Join-Path $HOME '.assured-arc'),
     [string]$VaultPath,
     [string]$VsCodeUserDirectory,
@@ -21,8 +22,12 @@ param(
     [string]$CopilotCliCommand = 'copilot',
     [switch]$DryRun,
     [switch]$InstallCopilotCli,
+    [switch]$SkipCopilotCli,
+    [switch]$InstallExtensions,
     [switch]$SkipExtensions,
+    [switch]$InstallVault,
     [switch]$SkipVault,
+    [switch]$InstallMcp,
     [switch]$SkipMcp,
     [switch]$ForceSettings,
     [switch]$NoBackup
@@ -41,10 +46,10 @@ $arguments = @{
     CodeCommand = $CodeCommand
     CopilotCliCommand = $CopilotCliCommand
 }
-foreach ($name in @('VaultPath', 'VsCodeUserDirectory', 'CopilotRoot', 'CopilotCliRoot', 'ConfigPath')) {
+foreach ($name in @('Profile', 'VaultPath', 'VsCodeUserDirectory', 'CopilotRoot', 'CopilotCliRoot', 'ConfigPath')) {
     if ($PSBoundParameters.ContainsKey($name)) { $arguments[$name] = $PSBoundParameters[$name] }
 }
-foreach ($name in @('DryRun', 'InstallCopilotCli', 'SkipExtensions', 'SkipVault', 'ForceSettings', 'NoBackup')) {
+foreach ($name in @('DryRun', 'InstallCopilotCli', 'SkipCopilotCli', 'InstallExtensions', 'SkipExtensions', 'InstallVault', 'SkipVault', 'InstallMcp', 'ForceSettings', 'NoBackup')) {
     if ($PSBoundParameters.ContainsKey($name)) { $arguments[$name] = [bool]$PSBoundParameters[$name] }
 }
 if ($SkipMcp) { $arguments.SkipMcp = $true }

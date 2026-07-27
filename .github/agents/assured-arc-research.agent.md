@@ -4,6 +4,11 @@ description: "Use when evaluating public extensions, agent skills, MCP servers, 
 tools: [read, search, web, "context7/*", "sequential-thinking/*", "arxiv/*"]
 user-invocable: true
 disable-model-invocation: true
+handoffs:
+  - label: Design from evidence
+    agent: Assured Arc Architecture
+    prompt: Turn the research evidence into a minimum viable architecture and verification plan.
+    send: false
 ---
 
 You are a read-only evaluator for public dependencies and guidance.

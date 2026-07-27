@@ -88,4 +88,12 @@ Workers are hidden from the picker, protected from general model selection, and 
 
 Separate agents prevent a documentation task from silently installing software, and prevent a research task from mutating a user environment. Narrow roles improve predictable behavior and make permissions easier to review.
 
+## Manual handoffs
+
+Visible agents offer reviewable handoff buttons for the smallest common flow:
+
+`Research → Architecture → Development → QA → Security Review → Development`
+
+Architecture can also start Development directly, and Documentation hands off to QA. Every handoff uses `send: false`, so the user can inspect or edit the prepared prompt before sending. Hidden disposable workers and their tool scopes are unchanged.
+
 See [HARNESS.md](HARNESS.md) for budgets, hooks, context policy, daily use, and the separate harness evolution workflow.

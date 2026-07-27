@@ -37,6 +37,39 @@
       "expect": ["observe", "observe"]
     },
     {
+      "id": "parallel-read-only-workers",
+      "events": [
+        { "hook_event_name": "SessionStart", "session_id": "parallel-readers" },
+        { "hook_event_name": "SubagentStart", "session_id": "parallel-readers", "agent_id": "scout", "agent_type": "Assured Arc Disposable Scout" },
+        { "hook_event_name": "SubagentStart", "session_id": "parallel-readers", "agent_id": "critic", "agent_type": "Assured Arc Disposable Critic" },
+        { "hook_event_name": "SubagentStart", "session_id": "parallel-readers", "agent_id": "researcher", "agent_type": "Assured Arc Disposable Researcher" }
+      ],
+      "expect": ["observe", "allow", "allow", "allow"]
+    },
+    {
+      "id": "writer-verifier-lifecycle",
+      "events": [
+        { "hook_event_name": "SessionStart", "session_id": "writer-verifier" },
+        { "hook_event_name": "SubagentStart", "session_id": "writer-verifier", "agent_id": "writer", "agent_type": "Assured Arc Disposable Implementer" },
+        { "hook_event_name": "SubagentStop", "session_id": "writer-verifier", "agent_id": "writer", "agent_type": "Assured Arc Disposable Implementer" },
+        { "hook_event_name": "SubagentStart", "session_id": "writer-verifier", "agent_id": "verifier", "agent_type": "Assured Arc Disposable Verifier" },
+        { "hook_event_name": "SubagentStop", "session_id": "writer-verifier", "agent_id": "verifier", "agent_type": "Assured Arc Disposable Verifier" }
+      ],
+      "expect": ["observe", "allow", "observe", "allow", "observe"]
+    },
+    {
+      "id": "single-successful-repair",
+      "events": [
+        { "hook_event_name": "SessionStart", "session_id": "single-repair" },
+        { "hook_event_name": "SubagentStart", "session_id": "single-repair", "agent_id": "writer", "agent_type": "Assured Arc Disposable Implementer" },
+        { "hook_event_name": "SubagentStop", "session_id": "single-repair", "agent_id": "writer", "agent_type": "Assured Arc Disposable Implementer" },
+        { "hook_event_name": "SubagentStart", "session_id": "single-repair", "agent_id": "repair", "agent_type": "Assured Arc Disposable Implementer", "failure_id": "new-evidence" },
+        { "hook_event_name": "SubagentStop", "session_id": "single-repair", "agent_id": "repair", "agent_type": "Assured Arc Disposable Implementer" },
+        { "hook_event_name": "SubagentStart", "session_id": "single-repair", "agent_id": "verifier", "agent_type": "Assured Arc Disposable Verifier" }
+      ],
+      "expect": ["observe", "allow", "observe", "allow", "observe", "allow"]
+    },
+    {
       "id": "dependency-change-needs-approval",
       "events": [
         { "hook_event_name": "SessionStart", "session_id": "dependency" },
