@@ -10,6 +10,7 @@ VSCODE_USER_DIR=""
 COPILOT_ROOT=""
 COPILOT_CLI_ROOT=""
 CONFIG_PATH="${REPO_ROOT}/config/assured-arc.example.json"
+PROFILE_NAME=""
 CODE_COMMAND="code"
 COPILOT_CLI_COMMAND="copilot"
 DRY_RUN=false
@@ -26,11 +27,13 @@ SKIP_VAULT_SET=false
 INSTALL_MCP_SET=false
 INSTALL_COPILOT_CLI_SET=false
 FORCE_SETTINGS_SET=false
+PROFILE_SET=false
 
 usage() {
   cat <<'EOF'
 Usage: install/assured-arc.sh [options]
 
+  --profile NAME         Install profile: Minimal, Research, Full, or CopilotCli
   --profile-root PATH    Managed package state directory
   --vault-path PATH      Destination for the optional vault template
   --vscode-user-dir PATH Isolated VS Code User directory, useful for testing
@@ -41,7 +44,10 @@ Usage: install/assured-arc.sh [options]
   --copilot-cli-command PATH GitHub Copilot CLI command, default: copilot
   --dry-run              Print actions without modifying files
   --install-copilot-cli  Install agents, instructions, hooks, and MCP for Copilot CLI
+  --skip-copilot-cli     Do not install into the personal Copilot CLI profile
+  --install-extensions   Install manifest extensions, overriding the profile
   --skip-extensions      Do not install VS Code extensions
+  --install-vault        Create the vault template, overriding the profile
   --skip-vault           Do not create the vault template
   --skip-mcp             Do not install the reviewed Context7, Sequential Thinking, and arXiv MCP profile
   --install-mcp          Compatibility alias; MCP installation is already enabled by default
@@ -53,6 +59,7 @@ EOF
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --profile) PROFILE_NAME="$2"; PROFILE_SET=true; shift 2 ;;
     --profile-root) PROFILE_ROOT="$2"; PROFILE_ROOT_SET=true; shift 2 ;;
     --vault-path) VAULT_PATH="$2"; VAULT_PATH_SET=true; shift 2 ;;
     --vscode-user-dir) VSCODE_USER_DIR="$2"; shift 2 ;;
@@ -63,7 +70,10 @@ while [[ $# -gt 0 ]]; do
     --copilot-cli-command) COPILOT_CLI_COMMAND="$2"; shift 2 ;;
     --dry-run) DRY_RUN=true; shift ;;
     --install-copilot-cli) INSTALL_COPILOT_CLI=true; INSTALL_COPILOT_CLI_SET=true; shift ;;
+    --skip-copilot-cli) INSTALL_COPILOT_CLI=false; INSTALL_COPILOT_CLI_SET=true; shift ;;
+    --install-extensions) SKIP_EXTENSIONS=false; SKIP_EXTENSIONS_SET=true; shift ;;
     --skip-extensions) SKIP_EXTENSIONS=true; SKIP_EXTENSIONS_SET=true; shift ;;
+    --install-vault) SKIP_VAULT=false; SKIP_VAULT_SET=true; shift ;;
     --skip-vault) SKIP_VAULT=true; SKIP_VAULT_SET=true; shift ;;
     --skip-mcp) INSTALL_MCP=false; INSTALL_MCP_SET=true; shift ;;
     --install-mcp) INSTALL_MCP=true; INSTALL_MCP_SET=true; shift ;;
@@ -79,26 +89,42 @@ command -v python3 >/dev/null || { echo 'Python 3 is required for safe JSON merg
 mapfile -t CONFIG_VALUES < <(python3 - "$CONFIG_PATH" <<'PY'
 import json, sys
 data = json.load(open(sys.argv[1], encoding='utf-8'))
-keys = ('profileRoot', 'vaultPath', 'installCopilotCli', 'installExtensions', 'installMcp', 'installVault', 'forceSettings')
+keys = ('profile', 'profileRoot', 'vaultPath', 'installCopilotCli', 'installExtensions', 'installMcp', 'installVault', 'forceSettings')
 def value(key):
   item = data.get(key, '')
   return str(item).lower() if isinstance(item, bool) else str(item or '')
 for key in keys: print(value(key))
 PY
 )
-CONFIG_PROFILE="${CONFIG_VALUES[0]:-}"
-CONFIG_VAULT="${CONFIG_VALUES[1]:-}"
-CONFIG_COPILOT_CLI="${CONFIG_VALUES[2]:-}"
-CONFIG_EXTENSIONS="${CONFIG_VALUES[3]:-}"
-CONFIG_MCP="${CONFIG_VALUES[4]:-}"
-CONFIG_VAULT_ENABLED="${CONFIG_VALUES[5]:-}"
-CONFIG_FORCE="${CONFIG_VALUES[6]:-}"
+CONFIG_PROFILE_NAME="${CONFIG_VALUES[0]:-}"
+CONFIG_PROFILE="${CONFIG_VALUES[1]:-}"
+CONFIG_VAULT="${CONFIG_VALUES[2]:-}"
+CONFIG_COPILOT_CLI="${CONFIG_VALUES[3]:-}"
+CONFIG_EXTENSIONS="${CONFIG_VALUES[4]:-}"
+CONFIG_MCP="${CONFIG_VALUES[5]:-}"
+CONFIG_VAULT_ENABLED="${CONFIG_VALUES[6]:-}"
+CONFIG_FORCE="${CONFIG_VALUES[7]:-}"
+if [[ "$PROFILE_SET" != true ]]; then PROFILE_NAME="${CONFIG_PROFILE_NAME:-Full}"; fi
+mapfile -t PROFILE_VALUES < <(python3 - "${REPO_ROOT}/config/install-profiles.json" "$PROFILE_NAME" <<'PY'
+import json, sys
+data = json.load(open(sys.argv[1], encoding='utf-8'))
+name = next((key for key in data['profiles'] if key.lower() == sys.argv[2].lower()), None)
+if not name: raise SystemExit(f"Unknown install profile '{sys.argv[2]}'. Expected one of: {', '.join(data['profiles'])}.")
+profile = data['profiles'][name]
+for key in ('installExtensions', 'installMcp', 'installVault', 'installCopilotCli'):
+  print(str(profile[key]).lower())
+PY
+)
+if [[ "$SKIP_EXTENSIONS_SET" != true ]]; then [[ "${PROFILE_VALUES[0]}" == true ]] && SKIP_EXTENSIONS=false || SKIP_EXTENSIONS=true; fi
+if [[ "$INSTALL_MCP_SET" != true ]]; then INSTALL_MCP="${PROFILE_VALUES[1]}"; fi
+if [[ "$SKIP_VAULT_SET" != true ]]; then [[ "${PROFILE_VALUES[2]}" == true ]] && SKIP_VAULT=false || SKIP_VAULT=true; fi
+if [[ "$INSTALL_COPILOT_CLI_SET" != true ]]; then INSTALL_COPILOT_CLI="${PROFILE_VALUES[3]}"; fi
 if [[ "$PROFILE_ROOT_SET" != true && -n "$CONFIG_PROFILE" ]]; then PROFILE_ROOT="$CONFIG_PROFILE"; fi
 if [[ "$VAULT_PATH_SET" != true && -n "$CONFIG_VAULT" ]]; then VAULT_PATH="$CONFIG_VAULT"; fi
-if [[ "$INSTALL_COPILOT_CLI_SET" != true && "$CONFIG_COPILOT_CLI" == true ]]; then INSTALL_COPILOT_CLI=true; fi
-if [[ "$SKIP_EXTENSIONS_SET" != true && "$CONFIG_EXTENSIONS" == false ]]; then SKIP_EXTENSIONS=true; fi
-if [[ "$INSTALL_MCP_SET" != true && "$CONFIG_MCP" == false ]]; then INSTALL_MCP=false; fi
-if [[ "$SKIP_VAULT_SET" != true && "$CONFIG_VAULT_ENABLED" == false ]]; then SKIP_VAULT=true; fi
+if [[ "$INSTALL_COPILOT_CLI_SET" != true && -n "$CONFIG_COPILOT_CLI" ]]; then INSTALL_COPILOT_CLI="$CONFIG_COPILOT_CLI"; fi
+if [[ "$SKIP_EXTENSIONS_SET" != true && -n "$CONFIG_EXTENSIONS" ]]; then [[ "$CONFIG_EXTENSIONS" == true ]] && SKIP_EXTENSIONS=false || SKIP_EXTENSIONS=true; fi
+if [[ "$INSTALL_MCP_SET" != true && -n "$CONFIG_MCP" ]]; then INSTALL_MCP="$CONFIG_MCP"; fi
+if [[ "$SKIP_VAULT_SET" != true && -n "$CONFIG_VAULT_ENABLED" ]]; then [[ "$CONFIG_VAULT_ENABLED" == true ]] && SKIP_VAULT=false || SKIP_VAULT=true; fi
 if [[ "$FORCE_SETTINGS_SET" != true && "$CONFIG_FORCE" == true ]]; then FORCE_SETTINGS=true; fi
 
 run() {

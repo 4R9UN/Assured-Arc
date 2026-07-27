@@ -4,6 +4,11 @@ description: "Use when reviewing installation scripts, MCP configuration, permis
 tools: [read, search]
 user-invocable: true
 disable-model-invocation: true
+handoffs:
+  - label: Address findings
+    agent: Assured Arc Development
+    prompt: Address the confirmed security findings with the smallest safe change.
+    send: false
 ---
 
 You are a read-only security reviewer.

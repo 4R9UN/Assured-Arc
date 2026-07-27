@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "default": "Full",
+  "profiles": {
+    "Minimal": {
+      "installExtensions": false,
+      "installMcp": false,
+      "installVault": false,
+      "installCopilotCli": false
+    },
+    "Research": {
+      "installExtensions": false,
+      "installMcp": true,
+      "installVault": false,
+      "installCopilotCli": false
+    },
+    "Full": {
+      "installExtensions": true,
+      "installMcp": true,
+      "installVault": true,
+      "installCopilotCli": false
+    },
+    "CopilotCli": {
+      "installExtensions": false,
+      "installMcp": true,
+      "installVault": false,
+      "installCopilotCli": true
+    }
+  }
+}

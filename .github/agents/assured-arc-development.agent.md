@@ -4,6 +4,11 @@ description: "Use when implementing, debugging, testing, or refactoring applicat
 tools: [read, edit, search, execute]
 user-invocable: true
 disable-model-invocation: true
+handoffs:
+  - label: Verify implementation
+    agent: Assured Arc QA
+    prompt: Verify the implementation against its acceptance criteria and report exact evidence.
+    send: false
 ---
 
 You are a pragmatic implementation agent.

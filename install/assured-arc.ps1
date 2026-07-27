@@ -14,6 +14,7 @@
 #>
 [CmdletBinding()]
 param(
+    [string]$Profile,
     [string]$ProfileRoot = (Join-Path $HOME '.assured-arc'),
     [string]$VaultPath,
     [string]$VsCodeUserDirectory,
@@ -24,7 +25,10 @@ param(
     [string]$CopilotCliCommand = 'copilot',
     [switch]$DryRun,
     [switch]$InstallCopilotCli,
+    [switch]$SkipCopilotCli,
+    [switch]$InstallExtensions,
     [switch]$SkipExtensions,
+    [switch]$InstallVault,
     [switch]$SkipVault,
     [switch]$InstallMcp,
     [switch]$SkipMcp,
@@ -926,8 +930,24 @@ function Remove-TransientBackups {
 try {
     Write-Step 'Resolve configuration'
     if ($InstallMcp -and $SkipMcp) { throw 'Use either -InstallMcp or -SkipMcp, not both.' }
+    if ($InstallCopilotCli -and $SkipCopilotCli) { throw 'Use either -InstallCopilotCli or -SkipCopilotCli, not both.' }
+    if ($InstallExtensions -and $SkipExtensions) { throw 'Use either -InstallExtensions or -SkipExtensions, not both.' }
+    if ($InstallVault -and $SkipVault) { throw 'Use either -InstallVault or -SkipVault, not both.' }
     if (-not $ConfigPath) { $ConfigPath = Join-Path $script:RepoRoot 'config\assured-arc.example.json' }
     $config = Read-JsonC $ConfigPath
+    $profileManifest = Read-JsonC (Join-Path $script:RepoRoot 'config\install-profiles.json')
+    $selectedProfile = if ($PSBoundParameters.ContainsKey('Profile')) { $Profile } elseif ($config.Contains('profile') -and $config['profile']) { [string]$config['profile'] } else { [string]$profileManifest['default'] }
+    $profileName = @($profileManifest['profiles'].Keys | Where-Object { [string]::Equals([string]$_, $selectedProfile, [StringComparison]::OrdinalIgnoreCase) }) | Select-Object -First 1
+    if (-not $profileName) { throw "Unknown install profile '$selectedProfile'. Expected one of: $($profileManifest['profiles'].Keys -join ', ')." }
+    $profileConfig = $profileManifest['profiles'][$profileName]
+    if (-not $PSBoundParameters.ContainsKey('InstallExtensions') -and -not $PSBoundParameters.ContainsKey('SkipExtensions')) { $SkipExtensions = -not [bool]$profileConfig['installExtensions'] }
+    if (-not $PSBoundParameters.ContainsKey('InstallMcp') -and -not $PSBoundParameters.ContainsKey('SkipMcp')) { $InstallMcp = [bool]$profileConfig['installMcp'] }
+    if (-not $PSBoundParameters.ContainsKey('InstallVault') -and -not $PSBoundParameters.ContainsKey('SkipVault')) { $SkipVault = -not [bool]$profileConfig['installVault'] }
+    if (-not $PSBoundParameters.ContainsKey('InstallCopilotCli') -and -not $PSBoundParameters.ContainsKey('SkipCopilotCli')) { $InstallCopilotCli = [bool]$profileConfig['installCopilotCli'] }
+    if ($config.Contains('installExtensions') -and -not $PSBoundParameters.ContainsKey('InstallExtensions') -and -not $PSBoundParameters.ContainsKey('SkipExtensions')) { $SkipExtensions = -not [bool]$config['installExtensions'] }
+    if ($config.Contains('installMcp') -and -not $PSBoundParameters.ContainsKey('InstallMcp') -and -not $PSBoundParameters.ContainsKey('SkipMcp')) { $InstallMcp = [bool]$config['installMcp'] }
+    if ($config.Contains('installVault') -and -not $PSBoundParameters.ContainsKey('InstallVault') -and -not $PSBoundParameters.ContainsKey('SkipVault')) { $SkipVault = -not [bool]$config['installVault'] }
+    if ($config.Contains('installCopilotCli') -and -not $PSBoundParameters.ContainsKey('InstallCopilotCli') -and -not $PSBoundParameters.ContainsKey('SkipCopilotCli')) { $InstallCopilotCli = [bool]$config['installCopilotCli'] }
     if ($config.Contains('profileRoot') -and $config['profileRoot'] -and -not $PSBoundParameters.ContainsKey('ProfileRoot')) { $ProfileRoot = $config['profileRoot'] }
     $ProfileRoot = [IO.Path]::GetFullPath($ProfileRoot)
     $script:StatePath = Join-Path $ProfileRoot 'state.json'
@@ -936,11 +956,10 @@ try {
     if (-not $VaultPath) { $VaultPath = Join-Path $ProfileRoot 'vault' }
     if ($config.Contains('vaultPath') -and $config['vaultPath'] -and -not $PSBoundParameters.ContainsKey('VaultPath')) { $VaultPath = $config['vaultPath'] }
     $VaultPath = [IO.Path]::GetFullPath($VaultPath)
-    if ($config.Contains('installExtensions') -and -not $config['installExtensions'] -and -not $PSBoundParameters.ContainsKey('SkipExtensions')) { $SkipExtensions = $true }
-    if ($config.Contains('installCopilotCli') -and $config['installCopilotCli'] -and -not $PSBoundParameters.ContainsKey('InstallCopilotCli')) { $InstallCopilotCli = $true }
-    if ($config.Contains('installMcp') -and $config['installMcp'] -and -not $PSBoundParameters.ContainsKey('InstallMcp') -and -not $SkipMcp) { $InstallMcp = $true }
+    if ($InstallExtensions) { $SkipExtensions = $false }
+    if ($InstallVault) { $SkipVault = $false }
+    if ($SkipCopilotCli) { $InstallCopilotCli = $false }
     if ($SkipMcp) { $InstallMcp = $false }
-    if ($config.Contains('installVault') -and -not $config['installVault'] -and -not $PSBoundParameters.ContainsKey('SkipVault')) { $SkipVault = $true }
     if ($config.Contains('forceSettings') -and $config['forceSettings'] -and -not $PSBoundParameters.ContainsKey('ForceSettings')) { $ForceSettings = $true }
     $vscodeUser = [IO.Path]::GetFullPath($(if ($VsCodeUserDirectory) { $VsCodeUserDirectory } else { Get-VsCodeUserDirectory }))
     $copilotRoot = [IO.Path]::GetFullPath($(if ($CopilotRoot) { $CopilotRoot } else { Join-Path $ProfileRoot 'copilot' }))

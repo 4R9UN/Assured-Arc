@@ -9,6 +9,7 @@ import json
 import os
 import re
 import sys
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterator
@@ -63,6 +64,23 @@ def _load_json(path: Path, fallback: dict[str, Any]) -> dict[str, Any]:
         return value if isinstance(value, dict) else fallback
     except (OSError, json.JSONDecodeError):
         return fallback
+
+
+def _write_receipt(trace_dir: Path, record: dict[str, Any]) -> None:
+    temporary: Path | None = None
+    receipt_dir = trace_dir / "receipts"
+    try:
+        receipt_dir.mkdir(parents=True, exist_ok=True)
+        os.chmod(receipt_dir, 0o700)
+        path = receipt_dir / f"{time.time_ns()}-{record['session']}.json"
+        temporary = path.with_suffix(f".tmp-{os.getpid()}")
+        temporary.write_text(json.dumps(record, ensure_ascii=True, separators=(",", ":")) + "\n", encoding="utf-8")
+        os.chmod(temporary, 0o600)
+        os.replace(temporary, path)
+    except OSError:
+        if temporary is not None:
+            with contextlib.suppress(OSError):
+                temporary.unlink()
 
 
 def _opaque(value: str) -> str:
@@ -167,13 +185,14 @@ def _locked_state(path: Path) -> Iterator[dict[str, int]]:
             fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
         state = _load_json(
             path,
-            {"subagents_started": 0, "active_workers": {}, "tool_calls": 0, "writer_invocations": 0, "failure_counts": {}},
+            {"subagents_started": 0, "active_workers": {}, "tool_calls": 0, "writer_invocations": 0, "failure_counts": {}, "decision_counts": {}},
         )
         state.setdefault("subagents_started", 0)
         state.setdefault("active_workers", {})
         state.setdefault("tool_calls", 0)
         state.setdefault("writer_invocations", 0)
         state.setdefault("failure_counts", {})
+        state.setdefault("decision_counts", {})
         yield state
         temporary = path.with_suffix(f".tmp-{os.getpid()}")
         temporary.write_text(json.dumps(state, separators=(",", ":")), encoding="utf-8")
@@ -184,7 +203,7 @@ def _locked_state(path: Path) -> Iterator[dict[str, int]]:
 
 def _cleanup(trace_dir: Path, retention_days: int) -> None:
     cutoff = datetime.now(timezone.utc) - timedelta(days=max(1, retention_days))
-    paths = list(trace_dir.glob("*.jsonl")) + list((trace_dir / "state").glob("*"))
+    paths = list(trace_dir.glob("*.jsonl")) + list((trace_dir / "state").glob("*")) + list((trace_dir / "receipts").glob("*"))
     for path in paths:
         try:
             modified = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
@@ -266,7 +285,7 @@ def main() -> int:
     except json.JSONDecodeError as exc:
         raise ValueError("Invalid hook JSON input.") from exc
 
-    host = os.environ.get("ASSURED_ARC_HARNESS_HOST", "vscode").strip().lower()
+    host = "copilot-cli" if os.environ.get("ASSURED_ARC_HARNESS_HOST", "").strip().lower() == "copilot-cli" else "vscode"
     config_path = Path(os.environ.get("ASSURED_ARC_HARNESS_CONFIG", str(DEFAULT_CONFIG))).expanduser()
     trace_dir = Path(os.environ.get("ASSURED_ARC_HARNESS_TRACE_DIR", str(DEFAULT_TRACE_DIR))).expanduser()
     tool_policy_path = Path(os.environ.get("ASSURED_ARC_HARNESS_TOOL_POLICY", str(config_path.parent / "tool-policy.json"))).expanduser()
@@ -294,7 +313,7 @@ def main() -> int:
     with _locked_state(state_path) as state:
         if event_name == "SessionStart":
             state.clear()
-            state.update({"subagents_started": 0, "active_workers": {}, "tool_calls": 0, "writer_invocations": 0, "failure_counts": {}})
+            state.update({"subagents_started": 0, "active_workers": {}, "tool_calls": 0, "writer_invocations": 0, "failure_counts": {}, "decision_counts": {}})
             response = {
                 "hookSpecificOutput": {
                     "hookEventName": "SessionStart",
@@ -456,6 +475,8 @@ def main() -> int:
                     ),
                 }
             }
+        outcome = decision or "observe"
+        state["decision_counts"][outcome] = state["decision_counts"].get(outcome, 0) + 1
 
     if event_name == "SessionStart":
         _cleanup(trace_dir, int(tracing.get("retentionDays", 14)))
@@ -475,6 +496,22 @@ def main() -> int:
             },
         )
 
+    if event_name in {"Stop", "SessionEnd", "AgentStop"}:
+        _write_receipt(
+            trace_dir,
+            {
+                "schema": 1,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "session": session,
+                "workspace": cwd,
+                "host": host,
+                "workerCounts": {"started": int(state["subagents_started"]), "writers": int(state["writer_invocations"])},
+                "toolCount": int(state["tool_calls"]),
+                "policyDecisionCounts": dict(sorted(state["decision_counts"].items())),
+                "completionStatus": "completed" if event_name in {"Stop", "SessionEnd"} else "agent-stopped",
+            },
+        )
+
     if event_name in {"Stop", "SessionEnd"}:
         with contextlib.suppress(OSError):
             state_path.unlink()
@@ -490,4 +527,4 @@ if __name__ == "__main__":
         raise SystemExit(main())
     except Exception as exc:
         sys.stderr.write(f"Agent harness hook failed: {type(exc).__name__}\n")
-        raise SystemExit(2)
+        raise SystemExit(2) from exc
