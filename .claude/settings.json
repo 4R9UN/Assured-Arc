@@ -1,0 +1,106 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python hooks/harness_event.py",
+            "timeout": 180,
+            "env": {
+              "ASSURED_ARC_HARNESS_HOST": "claude",
+              "ASSURED_ARC_HARNESS_CONFIG": "config/agent-harness.json",
+              "ASSURED_ARC_HARNESS_TRACE_DIR": ".assured-arc/harness-runs",
+              "ASSURED_ARC_HARNESS_TOOL_POLICY": "config/tool-policy.json",
+              "ASSURED_ARC_SCOREBOARD": "config/scoreboard.json",
+              "ASSURED_ARC_SCOREBOARD_SCRIPT": "scripts/scoreboard.py",
+              "ASSURED_ARC_SCOREBOARD_ROOT": "config"
+            }
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python hooks/harness_event.py",
+            "timeout": 180,
+            "env": {
+              "ASSURED_ARC_HARNESS_HOST": "claude",
+              "ASSURED_ARC_HARNESS_CONFIG": "config/agent-harness.json",
+              "ASSURED_ARC_HARNESS_TRACE_DIR": ".assured-arc/harness-runs",
+              "ASSURED_ARC_HARNESS_TOOL_POLICY": "config/tool-policy.json",
+              "ASSURED_ARC_SCOREBOARD": "config/scoreboard.json",
+              "ASSURED_ARC_SCOREBOARD_SCRIPT": "scripts/scoreboard.py",
+              "ASSURED_ARC_SCOREBOARD_ROOT": "config"
+            }
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python hooks/harness_event.py",
+            "timeout": 180,
+            "env": {
+              "ASSURED_ARC_HARNESS_HOST": "claude",
+              "ASSURED_ARC_HARNESS_CONFIG": "config/agent-harness.json",
+              "ASSURED_ARC_HARNESS_TRACE_DIR": ".assured-arc/harness-runs",
+              "ASSURED_ARC_HARNESS_TOOL_POLICY": "config/tool-policy.json",
+              "ASSURED_ARC_SCOREBOARD": "config/scoreboard.json",
+              "ASSURED_ARC_SCOREBOARD_SCRIPT": "scripts/scoreboard.py",
+              "ASSURED_ARC_SCOREBOARD_ROOT": "config"
+            }
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python hooks/harness_event.py",
+            "timeout": 180,
+            "env": {
+              "ASSURED_ARC_HARNESS_HOST": "claude",
+              "ASSURED_ARC_HARNESS_CONFIG": "config/agent-harness.json",
+              "ASSURED_ARC_HARNESS_TRACE_DIR": ".assured-arc/harness-runs",
+              "ASSURED_ARC_HARNESS_TOOL_POLICY": "config/tool-policy.json",
+              "ASSURED_ARC_SCOREBOARD": "config/scoreboard.json",
+              "ASSURED_ARC_SCOREBOARD_SCRIPT": "scripts/scoreboard.py",
+              "ASSURED_ARC_SCOREBOARD_ROOT": "config"
+            }
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python hooks/harness_event.py",
+            "timeout": 180,
+            "env": {
+              "ASSURED_ARC_HARNESS_HOST": "claude",
+              "ASSURED_ARC_HARNESS_CONFIG": "config/agent-harness.json",
+              "ASSURED_ARC_HARNESS_TRACE_DIR": ".assured-arc/harness-runs",
+              "ASSURED_ARC_HARNESS_TOOL_POLICY": "config/tool-policy.json",
+              "ASSURED_ARC_SCOREBOARD": "config/scoreboard.json",
+              "ASSURED_ARC_SCOREBOARD_SCRIPT": "scripts/scoreboard.py",
+              "ASSURED_ARC_SCOREBOARD_ROOT": "config"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

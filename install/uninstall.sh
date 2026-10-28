@@ -178,8 +178,10 @@ for record in "${MANAGED[@]}"; do
   kind="${record%%$'\t'*}"
   target="${record#*$'\t'}"
   case "$kind" in
-    skill|skill-registry|instruction|agent|prompt|agent-harness|tool-policy|hook-script|hook-config)
+    skill|skill-registry|instruction|agent|prompt|agent-harness|tool-policy|hook-script|hook-config|scoreboard|scoreboard-check)
       path_within "$target" "$COPILOT_ROOT" || { echo "Managed $kind target is outside the selected Copilot root: $target" >&2; exit 1; } ;;
+    claude-settings|claude-contract|claude-agent)
+      path_within "$target" "${STATE_PROFILE}/claude" || { echo "Managed $kind target is outside the recorded Claude adapter root: $target" >&2; exit 1; } ;;
     cli-agent|cli-instruction|cli-hook-config)
       path_within "$target" "$COPILOT_CLI_ROOT" || { echo "Managed $kind target is outside the selected Copilot CLI root: $target" >&2; exit 1; } ;;
     mcp-runtime|mcp-template)

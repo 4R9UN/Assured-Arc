@@ -60,9 +60,13 @@ For Copilot CLI, confirm `<copilot-home>/hooks/assured-arc.json` exists and rest
 
 The installer never installs or upgrades Copilot CLI. Install it from the official GitHub instructions, confirm `copilot --version`, then rerun with `-InstallCopilotCli` or `--install-copilot-cli`. Omit that option to keep repository-level CLI compatibility without changing a personal CLI profile.
 
-## Harness blocks a command
+## Harness blocks a command or file edit
 
-The hook denies writes to installed agent, skill, instruction, hook, settings, and harness paths during daily work. It asks before dependency installation, publishing, global configuration, destructive commands, and infrastructure changes. Provide exact current turn approval when the operation is intended, or perform harness evolution in an isolated profile and worktree.
+The `PreToolUse` hook evaluates human-gated paths first (`_human_gate_decision` / `Get-HumanGateDecision`), strictly denying writes to `.github/agents`, `.github/skills`, `.github/hooks`, `.claude/agents`, `.claude/settings.json`, `mcp.json`, `hooks/`, `scripts/`, `install/`, and `config/*` during daily work before fallback policies (`ask`). It asks before dependency installation, publishing, global configuration, destructive commands, and infrastructure changes. Set `ASSURED_ARC_HUMAN_GATE=open` only when intentionally performing human-reviewed harness evolution, or perform harness evolution in an isolated profile and worktree.
+
+## Stop hook blocks completion after editing files
+
+When an agent edits or creates a file (`Edit`, `Write`, `NotebookEdit`, `apply_patch`, etc.), `PostToolUse` marks the session `pendingVerification = true`. On `Stop`, the hook runs `scripts/scoreboard.py` against `config/scoreboard.json` with a one-time 32-hex `ASSURED_ARC_SCOREBOARD_NONCE`. Completion remains blocked (`continue: false` in VS Code / `decision: block` in Claude Code) until every approved check exits `0` and writes a matching `verification-receipt`. Model-written receipt files cannot clear this gate. Inspect the approved check scripts under `config/checks/` and fix any failing verification step.
 
 ## Rollback
 

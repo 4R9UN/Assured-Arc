@@ -1,25 +1,39 @@
 # Assured Arc
 
-> A public, safety first workbench for repeatable GitHub Copilot workflows in VS Code and Copilot CLI, with portable agents, skills, hooks, optional Obsidian knowledge management, and reviewed research MCP tools.
+[![Release](https://img.shields.io/badge/release-v1.1.0-0284C7?style=flat-square)](CHANGELOG.md)
+[![Hosts](https://img.shields.io/badge/hosts-VS%20Code%20%7C%20Copilot%20CLI%20%7C%20Claude%20Code-9333EA?style=flat-square)](#at-a-glance)
+[![Safety](https://img.shields.io/badge/governance-Single--Writer%20%2B%20Scoreboard%20Gate-10B981?style=flat-square)](docs/HARNESS.md)
+[![License: MIT](https://img.shields.io/badge/license-MIT-F59E0B?style=flat-square)](LICENSE)
+
+> A public, safety-first workbench for repeatable AI engineering workflows across **VS Code**, **GitHub Copilot CLI**, and **Claude Code**—featuring a shared dual-host agent contract, disposable subagents, lazy-loaded skills, deterministic human-gated hooks, external scoreboard verification, optional Obsidian knowledge management, and reviewed research MCP tools.
 
 ## Short description
 
-**Assured Arc** creates a consistent, auditable agentic development environment across VS Code and GitHub Copilot CLI. Repository agents and skills work in either host automatically. One installer configures the VS Code experience and can optionally add the same agents, skills, instructions, hooks, and reviewed MCP tools to a personal Copilot CLI profile without copying secrets or replacing unrelated configuration.
+**Assured Arc** (`v1.1.0`) creates a consistent, auditable agentic development environment across **VS Code**, **GitHub Copilot CLI**, and **Claude Code**. A single canonical contract (`config/agent-contract.json`) governs bounded agent roles, while repository agents and skills work natively across hosts. One reversible installer configures the VS Code experience, renders native Claude Code adapters (`<profile-root>/claude`), wires external scoreboard verification hooks (`scripts/scoreboard.py`), and can optionally add the same agents, skills, instructions, hooks, and reviewed MCP tools to a personal Copilot CLI profile without copying secrets or replacing unrelated configuration.
 
-It is intended for developers, teams, workshops, and maintainers who need the same safe AI-assisted workflow across machines while retaining backup, rollback, customization, and uninstall support.
+It is built for developers, engineering teams, workshops, and maintainers who need predictable, high-assurance AI-assisted workflows across machines while retaining dry-run preview, backup, checksum-verified state tracking, customization, and surgical uninstall support.
+
+## What's new in v1.1.0
+
+- **Shared Dual-Host Contract (`config/agent-contract.json` + `scripts/render_contract.py`)**: One canonical JSON contract (`v1.1.0`) defines role capabilities, delegation depth (`1`), single-writer concurrency (`1`), parallel worker limits (`3`), skill budgets (`3`), and repair limits (`2`), rendering native Claude Code adapters (`.claude/agents/*.md`, `.claude/settings.json`) without copying Copilot agent files.
+- **External Scoreboard Verification Gate (`scripts/scoreboard.py` + `config/scoreboard.json`)**: Verify-after-write is enforced by deterministic hooks rather than prompt instructions. Any file write sets `pendingVerification = true`, blocking `Stop` completion until `scripts/scoreboard.py` executes approved checks (`config/checks/approved_check.py`) and writes a session- and cryptographic `verificationNonce`-matched `verification-receipt`.
+- **Strict Human-Gated Path Precedence**: `PreToolUse` hooks (`hooks/harness_event.py` and `hooks/harness-event.ps1`) evaluate human-gated boundaries first, strictly denying on-task edits to `.github/agents`, `.github/skills`, `.github/hooks`, `.claude/agents`, `.claude/settings.json`, `mcp.json`, `hooks/`, `scripts/`, `install/`, and `config/*` before fallback policies (`ask`) unless `ASSURED_ARC_HUMAN_GATE=open` is set by a human.
+- **Sharp, High-Contrast Animated Architecture Assets**: Redesigned SVG and 12 FPS GIF visual maps (`docs/assets/assured-arc-*.{svg,gif}`) illustrating the dual-host entry surfaces, bounded 7-phase loop, single-writer lock, and scoreboard nonce verification flow.
 
 ## At a glance
 
 | Area | Included capability |
 | --- | --- |
-| Installation | One Windows entry point, cross-platform internal installers, dry run, backup, rollback, repeat install, and uninstall |
-| Agents | 7 visible specialists plus 5 hidden disposable workers |
-| Hosts | VS Code by default, plus explicit personal-profile installation for GitHub Copilot CLI |
-| Orchestration | Native GitHub Copilot coordinator, one writer, depth one, up to 3 concurrent workers, independent verification, and bounded repair |
-| Skills and prompts | 27 portable lazy-loaded skills and 7 VS Code reusable prompts |
-| MCP research | Context7, Sequential Thinking `2026.7.4`, and isolated arXiv MCP `0.5.1` |
-| Knowledge | Optional portable Markdown and Obsidian vault template |
-| Safety | Least privilege tool scopes, protected global paths, state integrity, metadata-only traces, public safety checks, and explicit approval boundaries |
+| **Version** | `v1.1.0` ([CHANGELOG.md](CHANGELOG.md)) |
+| **Installation** | One Windows entry point (`install.ps1`), cross-platform internal installers (`install/assured-arc.*`), dry run, backup, rollback, `doctor`, legacy migration planner, repeat install, and surgical uninstall |
+| **Agents** | 7 visible Copilot specialists, 5 hidden disposable Copilot workers, and 6 contract-rendered Claude Code role adapters |
+| **Hosts** | VS Code by default, native Claude Code adapter rendering (`.claude/` & `<profile-root>/claude`), plus explicit personal-profile opt-in for GitHub Copilot CLI |
+| **Orchestration** | Native coordinator, single implementation writer, delegation depth `1`, up to `3` concurrent workers, external scoreboard verification, and bounded repair (`≤ 2`) |
+| **Skills & prompts** | 27 portable lazy-loaded skills (`config/skill-registry.json`) and 6 VS Code reusable slash-command prompts (`.github/prompts/*.prompt.md`) |
+| **Verification gate** | Hook-enforced `scripts/scoreboard.py` + `config/scoreboard.json` with 32-hex cryptographic nonce receipts (`selfScoreAllowed: false`) |
+| **MCP research** | Context7 (HTTPS), Sequential Thinking `2026.7.4`, and isolated `uv`-managed arXiv MCP `0.5.1` |
+| **Knowledge** | Optional portable Markdown and Obsidian vault template (`vault-template/`) |
+| **Safety** | Strict human-gated path precedence, least-privilege tool scopes, state SHA-256 integrity, metadata-only traces, public safety checks, and explicit approval boundaries |
 
 ## Problem statement
 
@@ -35,28 +49,29 @@ Modern GitHub Copilot workflows depend on custom agents, skills, instructions, h
 
 ## Proposed solution
 
-The repository provides a manifest-driven, GitHub Copilot-native agent harness and a reversible installer. It uses portable custom agents, subagents, skills, and hooks rather than adding a second orchestration framework or background service. VS Code prompt files remain an IDE-specific convenience.
+The repository provides a manifest-driven, dual-host agent harness and a reversible installer. It uses a canonical bounded-task contract (`config/agent-contract.json`), portable custom agents, disposable subagents, lazy-loaded skills, and deterministic hooks across GitHub Copilot (VS Code & CLI) and Claude Code rather than adding an external orchestration service or background daemon. VS Code prompt files remain an IDE-specific convenience.
 
 The solution follows this execution model:
 
-1. Convert the user request into explicit acceptance criteria and stopping conditions.
-2. Select no more than three relevant skills from compact registries.
-3. Complete simple work directly or delegate focused tasks to disposable workers.
-4. Allow only one implementation writer and keep remote research separate from editing.
-5. Run independent verification and permit at most two evidence-driven repairs.
-6. Return one consolidated result with evidence and remaining uncertainty.
-7. Record package ownership so upgrades and uninstall affect only package-managed assets.
+1. Convert the user request into explicit acceptance criteria and stopping conditions under the shared contract.
+2. Select no more than three relevant domain skills from compact registries (`config/skill-registry.json`).
+3. Complete simple read-only work directly or delegate focused tasks to context-isolated disposable workers.
+4. Allow only one implementation writer (`Implementer`) and keep remote web/MCP research strictly separated from editing.
+5. Enforce external verification after every file write via the `Stop` hook and `scripts/scoreboard.py`, permitting at most two evidence-driven repairs.
+6. Deny on-task mutations to harness, agent, skill, hook, MCP, and permission files unless a human opens `ASSURED_ARC_HUMAN_GATE=open`.
+7. Record package ownership with SHA-256 state verification so upgrades and uninstall affect only package-managed assets.
 
-This repository provides a manifest driven setup with safe defaults:
+This repository provides a manifest-driven setup with safe defaults:
 
-- Copies generic, public safe AI agents, skills, and instructions into supported VS Code and optional Copilot CLI locations.
-- Backs up affected VS Code and Copilot CLI configuration before changing it.
+- Copies generic, public-safe AI agents, skills, and instructions into supported VS Code and optional Copilot CLI locations, and renders native Claude Code adapters from `config/agent-contract.json`.
+- Backs up affected VS Code, Copilot CLI, and Claude adapter configuration before changing it.
 - Merges missing settings rather than replacing user settings by default.
 - Installs recommended extensions through VS Code unless explicitly skipped.
-- Creates an optional Markdown first Obsidian vault template.
-- Installs the reviewed Context7, Sequential Thinking, and arXiv MCP profile by default, with an explicit opt out.
-- Records installation state for rollback and uninstall.
-- Installs a bounded native agent harness with disposable subagents, one writer, independent verification, and metadata only local traces.
+- Creates an optional Markdown-first Obsidian vault template.
+- Installs the reviewed Context7, Sequential Thinking, and arXiv MCP profile by default, with an explicit opt-out.
+- Installs the external scoreboard runner (`scripts/scoreboard.py`) and approved check suite (`config/scoreboard.json`).
+- Records installation state (`schema: 4`) for health checks (`doctor`), rollback, and surgical uninstall.
+- Installs a bounded native agent harness with disposable subagents, one writer, nonce-verified scoreboard gates, and metadata-only local traces.
 
 > [!warning]
 > This is a starter kit, not a copy of anyone’s personal configuration. Do not commit credentials, customer data, internal URLs, private vault content, raw chat transcripts, or organization specific MCP endpoints.
@@ -65,49 +80,55 @@ This repository provides a manifest driven setup with safe defaults:
 
 | Capability | What it provides | Key boundary |
 | --- | --- | --- |
-| Safe installation | Merged settings, optional extensions and vault, state checksum, backups, rollback, and uninstall | Existing unrelated settings and MCP entries are preserved |
-| Native orchestration | Coordinator plus Scout, Researcher, Implementer, Verifier, and Critic workers | Delegation depth one, one active writer, and no nested workers |
-| Context-efficient skills | Compact registry selects up to three skills, with Development Quality added for code changes | The full skill library is not injected into every prompt |
-| Independent quality gates | Focused verification, regression checks, critic reviews, and bounded repairs | Verification remains separate from the writer |
-| Research tooling | Current library docs, structured analysis, and academic paper research | MCP tools are available to researchers, not the implementation worker |
-| Policy hooks | Worker and tool budgets, protected paths, approval checks, and local traces | Traces exclude prompts, reasoning, contents, arguments, results, and secrets |
-| Durable project context | Optional Markdown and Obsidian vault with MOCs and project templates | Private artifacts stay under `local-only/` |
-| Public package safety | Generic examples, secret-free templates, and automated scans | No tenant data, personal paths, internal URLs, or private MCP endpoints |
+| **Safe installation** | Install profiles (`Minimal`, `Research`, `Full`, `CopilotCli`), merged settings, state SHA-256 checksum, backups, `doctor`, rollback, and uninstall | Existing unrelated settings and MCP entries are preserved |
+| **Dual-host contract** | Canonical `config/agent-contract.json` rendered into Claude Code adapters (`.claude/agents/*.md`, `.claude/settings.json`) alongside Copilot | Never copies Copilot agent files into Claude; forbids runtime agent/skill invention |
+| **Native orchestration** | Coordinator plus Scout, Researcher, Implementer, Verifier, and Critic workers | Delegation depth `1`, `1` active writer, `≤ 3` parallel workers, and no nested subagents |
+| **Context-efficient skills** | Compact registry selects up to `3` domain skills, with Development Quality added for code changes | The full 27-skill library is never injected into every prompt |
+| **Scoreboard verification gate** | Hook-driven `scripts/scoreboard.py` runs approved checks (`config/scoreboard.json`) after any file edit | `Stop` hook blocks completion until a session- and nonce-matched receipt passes; no self-scoring |
+| **Research tooling** | Current library docs (Context7), structured analysis (Sequential Thinking), and academic paper search (arXiv) | MCP tools are available to researchers, never to the implementation writer |
+| **Deterministic policy hooks** | Strict human-gated path precedence, worker/tool budgets, approval checks, and metadata-only traces | Traces and run receipts exclude prompts, reasoning, file contents, arguments, results, and secrets |
+| **Durable project context** | Optional Markdown and Obsidian vault with MOCs and project templates | Private artifacts stay under `local-only/` |
+| **Public package safety** | Generic examples, secret-free templates, and automated public-safety scans | No tenant data, personal paths, internal URLs, or private MCP endpoints |
 
 ## Architecture
 
-[![Animated pencil-style map of Assured Arc](docs/assets/assured-arc-architecture.gif)](docs/assets/assured-arc-architecture.svg)
+[![Animated architecture map of Assured Arc v1.1.0](docs/assets/assured-arc-architecture.gif)](docs/assets/assured-arc-architecture.svg)
 
-The animation progressively reveals the host surfaces, acceptance contract, bounded execution loop, disposable workers, context sources, and verification boundary. Open the [editable static SVG](docs/assets/assured-arc-architecture.svg) for a motion-free version. The Mermaid diagrams below remain the structural reference. See [Graph and Agent Alignment](docs/GRAPH_ALIGNMENT.md) for the arXiv paper comparison, the Agent-Graph assessment, and the decision not to add a second orchestration runtime by default.
+The animated architecture map illustrates how developer intent enters through **VS Code**, **GitHub Copilot CLI**, or **Claude Code**, passes through the **Dual-Host Contract** and **Lazy Skill Router**, executes inside the **7-Phase Bounded Orchestrator Loop** with **5 Isolated Disposable Specialists** (`1 Writer`), and clears the **External Scoreboard Gate** before completing. Open the [editable static SVG](docs/assets/assured-arc-architecture.svg) for a high-resolution vector view. See [Graph and Agent Alignment](docs/GRAPH_ALIGNMENT.md) for the arXiv research comparison and why a separate graph runtime is not required.
 
 ```mermaid
 flowchart LR
-    U[Developer] --> I[Cross platform installer]
-    I --> B[Backup and state manager]
+    U[Developer] --> I[Cross-platform installer]
+    I --> B[Backup & state ledger v4]
     I --> VS[VS Code user profile]
     I --> CLI[Optional Copilot CLI profile]
+    I --> CL[Rendered Claude adapters]
     I --> CP[Managed package profile]
     I --> V[Optional Obsidian vault]
     I --> M[Research MCP configuration]
 
     VS --> E[Extensions]
-    VS --> A[Custom agents and prompts]
+    VS --> A[Custom agents & 6 slash prompts]
     CLI --> A
-    CLI --> HK[Policy hooks]
+    CLI --> HK[Deterministic policy hooks]
+    CL --> HK
+    CP --> SC[External scoreboard & checks]
     CP --> SR[Compact skill registry]
-    SR --> S[Lazy-loaded portable skills]
-    CP --> IN[Targeted instructions]
-    V --> K[Project knowledge and MOCs]
-    M --> T[Least privilege MCP tools]
+    SR --> S[27 lazy-loaded portable skills]
+    CP --> IN[Targeted global instructions]
+    V --> K[Project knowledge & MOCs]
+    M --> T[Least-privilege MCP tools]
 
-    A --> H[Native coordinator and disposable workers]
+    A --> H[Bounded coordinator & disposable workers]
+    CL --> H
     H --> SR
     H --> HK
+    HK --> SC
     A --> IN
     A --> K
     A --> T
 
-    B --> R[Rollback and uninstall]
+    B --> R[Doctor, rollback & surgical uninstall]
 ```
 
 ### Installation to daily usage
@@ -183,17 +204,18 @@ bash install/assured-arc.sh
 bash install/assured-arc.sh --install-copilot-cli
 ```
 
-The default install creates `~/.assured-arc` for state, backups, managed skills, hooks, arXiv runtime, and the optional vault. `-InstallCopilotCli` or `--install-copilot-cli` additionally uses the native Copilot home, normally `~/.copilot`, for agents, instructions, user hooks, settings registration, and CLI MCP configuration. Existing VS Code and CLI settings and unrelated MCP entries are merged, not replaced.
+The default install creates `~/.assured-arc` for state (`state.json`), backups, managed skills, hooks, scoreboard checks (`scoreboard.json`, `scoreboard.py`, `checks/approved_check.py`), rendered Claude Code adapters (`~/.assured-arc/claude`), the arXiv runtime, and the optional vault. `-InstallCopilotCli` or `--install-copilot-cli` additionally uses the native Copilot home, normally `~/.copilot`, for agents, instructions, user hooks, settings registration, and CLI MCP configuration. Existing VS Code and CLI settings and unrelated MCP entries are merged, not replaced.
 
 ### Confirm installation
 
 After installation, restart or reload the selected hosts, then verify:
 
 1. **Assured Arc Orchestrator** appears in the agent picker.
-2. The seven package prompts appear in the slash-command menu.
+2. The **six** package prompts appear in the VS Code slash-command menu.
 3. Context7, Sequential Thinking, and arXiv appear under **MCP: List Servers**.
-4. The state file exists under `~/.assured-arc/state.json`.
-5. Chat customization diagnostics show no errors for package agents, prompts, skills, or hooks.
+4. The state file exists under `~/.assured-arc/state.json` and `pwsh -File install/doctor.ps1` (or `bash install/doctor.sh`) reports `PASS`.
+5. Rendered Claude Code adapters exist under `~/.assured-arc/claude/agents` and `~/.assured-arc/claude/settings.json` (as well as `.claude/` in the repository).
+6. Chat customization diagnostics show no errors for package agents, prompts, skills, or hooks.
 
 For Copilot CLI integration, also verify:
 
@@ -207,6 +229,7 @@ For Copilot CLI integration, also verify:
 | Need | PowerShell | Bash |
 | --- | --- | --- |
 | Preview all work | `-DryRun` | `--dry-run` |
+| Select install profile (`Minimal`, `Research`, `Full`, `CopilotCli`) | `-Profile <Name>` | `--profile <Name>` |
 | Install into the personal Copilot CLI profile | `-InstallCopilotCli` | `--install-copilot-cli` |
 | Skip extensions | `-SkipExtensions` | `--skip-extensions` |
 | Skip vault | `-SkipVault` | `--skip-vault` |
@@ -214,6 +237,8 @@ For Copilot CLI integration, also verify:
 | Skip the default three-server MCP profile | `-SkipMcp` | `--skip-mcp` |
 | Replace conflicting settings | `-ForceSettings` | `--force-settings` |
 | Disable backups | `-NoBackup` | `--no-backup` |
+| Run read-only health check | `pwsh -File install/doctor.ps1` | `bash install/doctor.sh` |
+| Plan legacy profile migration | `pwsh -File install/migrate-legacy.ps1` | `bash install/migrate-legacy.sh` |
 
 Copy [config/assured-arc.example.json](config/assured-arc.example.json) to a local, ignored location when you need repeatable customization. Do not store secrets in that file.
 
@@ -229,9 +254,11 @@ Copy [config/assured-arc.example.json](config/assured-arc.example.json) to a loc
 | Assured Arc Research | Read only public dependency evaluation | Assess a VS Code extension, MCP server, or community skill |
 | Assured Arc Security Review | Read only installation and configuration review | Review secrets, permissions, MCP scope, rollback, and release readiness |
 
-Each agent has a dedicated [configuration file](.github/agents) with a clear purpose, cross-host tool aliases, interaction model, and safety boundary. Repository copies are discovered by both hosts. With personal CLI installation enabled, agents are copied to the CLI-native agent directory and VS Code points to the same source to avoid duplicate user-level definitions.
+Each agent has a dedicated [configuration file](.github/agents) with a clear purpose, cross-host tool aliases, reviewable handoff buttons (`send: false`), interaction model, and safety boundary. Repository copies are discovered by both VS Code and Copilot CLI. With personal CLI installation enabled, agents are copied to the CLI-native agent directory and VS Code points to the same source to avoid duplicate user-level definitions.
 
-The orchestrator can instantiate five hidden disposable worker archetypes: Scout, Researcher, Implementer, Verifier, and Critic. Workers have isolated context, cannot spawn children, and terminate after returning one focused result. Only the Implementer can edit. See [docs/HARNESS.md](docs/HARNESS.md).
+The orchestrator can instantiate five hidden disposable worker archetypes: **Scout**, **Researcher**, **Implementer**, **Verifier**, and **Critic**. Workers have isolated context, cannot spawn children (`agents: []`), and terminate after returning one focused result. Only the **Implementer** can edit files, and any file edit triggers the external scoreboard verification gate (`scripts/scoreboard.py`) on `Stop`.
+
+For **Claude Code**, `scripts/render_contract.py` renders six native role adapters (`assured-arc-orchestrator`, `assured-arc-scout`, `assured-arc-researcher`, `assured-arc-implementer`, `assured-arc-verifier`, and `assured-arc-critic`) under `.claude/agents/` and `<profile-root>/claude/agents/` directly from `config/agent-contract.json`. See [docs/HARNESS.md](docs/HARNESS.md) and [docs/AGENTS.md](docs/AGENTS.md).
 
 ## Included reusable prompts
 
@@ -328,10 +355,12 @@ See [docs/MCP.md](docs/MCP.md) for protocols, authentication patterns, endpoints
 | Location | Change | Default behavior |
 | --- | --- | --- |
 | VS Code user settings | Adds missing AI instruction discovery settings | Backs up, then merges defaults |
-| Managed customization root | Adds agents, prompts, skills, instructions, harness policy, and hooks under `<profile-root>/copilot` | Does not overwrite existing personal skill or prompt libraries |
+| Managed customization root | Adds agents, prompts, skills, instructions, harness policy, scoreboard config/checks, and hooks under `<profile-root>/copilot` | Does not overwrite existing personal skill or prompt libraries |
+| Claude Code adapter root | Renders 6 contract-driven Claude agents, `settings.json` hooks, and `agent-contract.json` under `<profile-root>/claude` | Never copies Copilot agent files; removed cleanly on uninstall |
 | VS Code customization locations | Adds exact managed agent, prompt, skill, instruction, and hook paths | Removes only package paths on uninstall |
 | Copilot CLI personal profile | Optionally adds agents, modular instructions, a managed skill-directory entry, user hooks, and reviewed MCP entries | Explicit opt in, conflict checked, and removed by exact ownership |
-| Local harness traces | Writes size limited metadata under `<profile-root>/harness-runs` | Excludes prompts, content, arguments, results, and secrets |
+| External scoreboard gate | Installs `scoreboard.json`, `scoreboard.py`, and `checks/approved_check.py` wired via `ASSURED_ARC_SCOREBOARD*` | Blocks `Stop` after any file write until nonce-verified checks exit `0` |
+| Local harness traces | Writes size-limited metadata and atomic run/verification receipts under `<profile-root>/harness-runs` | Excludes prompts, content, arguments, results, and secrets |
 | Extensions | Recognizes built-in Copilot Chat and installs missing manifest extensions without forcing replacement or downgrade | Enabled unless skipped |
 | MCP user config | Adds three reviewed research servers and a managed arXiv runtime | Enabled unless skipped |
 | Vault path | Creates missing template files | Enabled unless skipped |
@@ -432,19 +461,20 @@ bash install/uninstall.sh
 bash install/uninstall.sh --restore-backups --remove-extensions --remove-vault
 ```
 
-By default, uninstall removes managed agents, skills, prompts, instructions, hooks, package-owned VS Code and Copilot CLI MCP entries, and the managed arXiv runtime. Existing host settings and unrelated MCP entries remain untouched. Backup restoration returns complete pre-install files when explicitly requested.
+By default, uninstall removes managed agents, skills, prompts, instructions, hooks, scoreboard configs/checks, rendered Claude adapters, package-owned VS Code and Copilot CLI MCP entries, and the managed arXiv runtime. Existing host settings and unrelated MCP entries remain untouched. Backup restoration returns complete pre-install files when explicitly requested.
 
 ## Validation
 
 ```powershell
 pwsh -File tests/validate.ps1
+pwsh -File tests/public-safety.ps1
 ```
 
 ```bash
 bash tests/validate.sh
 ```
 
-Validation checks file structure, JSON, script syntax, harness capability contracts, hook budgets and redaction, the root installer, skill and prompt metadata, registry parity, installer lifecycle, rollback, settings cleanup, vault behavior, the exact three-server MCP inventory, and a no-network MCP fixture lifecycle.
+Validation checks file structure, JSON, script syntax, dual-host contract parity, Claude adapter rendering, harness capability boundaries, human-gate path precedence, external scoreboard nonce receipts, hook budgets and redaction, the root installer, `doctor` and `migrate-legacy` read-only helpers, skill and prompt metadata, registry parity, installer lifecycle, rollback, settings cleanup, vault behavior, the exact three-server MCP inventory, and a no-network MCP fixture lifecycle.
 
 ## Troubleshooting
 
@@ -452,8 +482,10 @@ Validation checks file structure, JSON, script syntax, harness capability contra
 | --- | --- |
 | `code` command missing | Open VS Code Command Palette, run **Shell Command: Install 'code' command in PATH**, then restart the terminal. Or use `-SkipExtensions`. |
 | PowerShell execution policy blocks scripts | Run with `pwsh -ExecutionPolicy Bypass -File .\install.ps1`. Review the script before using bypass. |
-| Python 3 missing on macOS or Linux | Install Python 3, which the Bash installer uses only for safe JSON merge and state generation. |
+| Python 3 missing on macOS or Linux | Install Python 3, which the installer and hooks use for safe JSON merge, Claude contract rendering, scoreboard verification, and state generation. |
 | Copilot CLI agent is missing | Restart the CLI, then use `/agent` or `copilot --agent assured-arc-orchestrator`. Confirm `-InstallCopilotCli` was used for personal availability. |
+| Stop hook blocks completion after file edit | A write tool marked the session `pendingVerification`. Ensure approved checks in `config/scoreboard.json` pass when `Stop` runs `scripts/scoreboard.py`. |
+| Hook denies editing `.github/*`, `.claude/*`, or `config/*` | Harness, skill, hook, MCP, and permission files are human-gated. Set `ASSURED_ARC_HUMAN_GATE=open` only when intentionally evolving the harness. |
 | MCP profile does not start | Confirm Node.js 18+, `npx`, `uv`, and Python 3.11+, then inspect `MCP: List Servers` or `copilot mcp list`. |
 | Existing settings look wrong | Run uninstall with backup restoration or manually restore a file from `<profile-root>/backups`. |
 | Obsidian is not installed | The vault remains usable as Markdown. Install Obsidian later and open the generated vault folder. |
@@ -465,19 +497,24 @@ See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for detailed diagnostics.
 ```text
 .
 ├── install.ps1                # Single Windows installation entry point
+├── CHANGELOG.md               # Release history and version notes
+├── .claude/                   # Contract-rendered Claude Code agents and hook settings
 ├── .github/
-│   ├── agents/                 # Portable VS Code and Copilot CLI agents
-│   ├── instructions/           # Targeted AI instructions
-│   ├── prompts/                # Reusable slash-command prompt files
-│   ├── hooks/                  # Portable hook configuration template
-│   └── skills/                 # Lazy loaded reusable workflows
-├── config/                     # Extension, settings, and Assured Arc manifests
-├── docs/                       # Tutorials and component reference
-├── hooks/                      # Cross platform policy and trace hook scripts
-├── install/                    # Internal platform lifecycle implementations
-├── mcp/                        # Safe MCP templates and schemas
-├── tests/                      # Static and dry run validation
-└── vault-template/             # Portable Obsidian compatible Markdown vault
+│   ├── agents/                # Portable VS Code and Copilot CLI agents (7 visible + 5 workers)
+│   ├── instructions/          # Targeted AI instructions
+│   ├── prompts/               # 6 reusable VS Code slash-command prompt files
+│   ├── hooks/                 # Portable hook configuration templates (VS Code & CLI)
+│   └── skills/                # 27 lazy-loaded reusable workflows
+├── config/                    # Shared contract, harness policy, scoreboard, and manifests
+│   └── checks/                # Approved deterministic verification checks
+├── docs/                      # Architecture, harness, MCP, skills, and troubleshooting guides
+│   └── assets/                # Animated GIF and editable SVG architecture diagrams
+├── hooks/                     # Cross-platform policy, human-gate, and trace hook scripts
+├── install/                   # Cross-platform installers, uninstaller, doctor, and migration helpers
+├── mcp/                       # Safe MCP templates for VS Code and Copilot CLI
+├── scripts/                   # Contract renderer, scoreboard runner, and asset generator
+├── tests/                     # Contract, trajectory, lifecycle, and public-safety suites
+└── vault-template/            # Portable Obsidian-compatible Markdown vault
 ```
 
 ## Security model

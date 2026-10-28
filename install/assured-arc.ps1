@@ -297,7 +297,13 @@ function Assert-InstallPlanPaths {
         (Join-Path $CopilotProfile 'tool-policy.json'),
         (Join-Path $CopilotProfile 'hooks\agent-harness.json'),
         (Join-Path $CopilotProfile 'hooks\harness-event.ps1'),
-        (Join-Path $CopilotProfile 'hooks\harness_event.py')
+        (Join-Path $CopilotProfile 'hooks\harness_event.py'),
+        (Join-Path $CopilotProfile 'hooks\scoreboard.py'),
+        (Join-Path $CopilotProfile 'scoreboard.json'),
+        (Join-Path $CopilotProfile 'checks\approved_check.py'),
+        (Join-Path $Profile 'claude'),
+        (Join-Path $Profile 'claude\settings.json'),
+        (Join-Path $Profile 'claude\agent-contract.json')
     )
     Get-ChildItem (Join-Path $script:RepoRoot '.github\skills') -Directory | ForEach-Object {
         $targets.Add((Join-Path $CopilotProfile ('skills' + [IO.Path]::DirectorySeparatorChar + $_.Name))) | Out-Null
@@ -311,6 +317,9 @@ function Assert-InstallPlanPaths {
     }
     Get-ChildItem (Join-Path $script:RepoRoot '.github\prompts') -Filter '*.prompt.md' -File | ForEach-Object {
         $targets.Add((Join-Path $CopilotProfile ('prompts' + [IO.Path]::DirectorySeparatorChar + $_.Name))) | Out-Null
+    }
+    foreach ($role in @('orchestrator', 'scout', 'researcher', 'implementer', 'verifier', 'critic')) {
+        $targets.Add((Join-Path $Profile ('claude\agents\assured-arc-' + $role + '.md'))) | Out-Null
     }
     if ($InstallCopilotCli) {
         $targets.Add($CopilotCliProfile) | Out-Null
@@ -635,6 +644,9 @@ function Install-CopilotCliProfile {
             $hook['env']['ASSURED_ARC_HARNESS_TOOL_POLICY'] = $toolPolicyTarget
             $hook['env']['ASSURED_ARC_HARNESS_HOST'] = 'copilot-cli'
             $hook['env']['ASSURED_ARC_HARNESS_EVENT'] = $eventName
+            $hook['env']['ASSURED_ARC_SCOREBOARD'] = (Join-Path $CopilotProfile 'scoreboard.json')
+            $hook['env']['ASSURED_ARC_SCOREBOARD_SCRIPT'] = (Join-Path $CopilotProfile 'hooks\scoreboard.py')
+            $hook['env']['ASSURED_ARC_SCOREBOARD_ROOT'] = [IO.Path]::GetFullPath($CopilotProfile)
         }
     }
     $owned = @($script:State.managed | Where-Object { $_['kind'] -eq 'cli-hook-config' -and [string]::Equals([string]$_['target'], $hookTarget, [StringComparison]::OrdinalIgnoreCase) }).Count -gt 0
@@ -682,6 +694,12 @@ function Install-AgentHarness {
     $pythonTarget = Join-Path $hookDirectory 'harness_event.py'
     Copy-ManagedFile -Source (Join-Path $script:RepoRoot 'hooks\harness-event.ps1') -Destination $powerShellTarget -Kind 'hook-script'
     Copy-ManagedFile -Source (Join-Path $script:RepoRoot 'hooks\harness_event.py') -Destination $pythonTarget -Kind 'hook-script'
+    $scoreboardTarget = Join-Path $CopilotProfile 'scoreboard.json'
+    $scoreboardScript = Join-Path $hookDirectory 'scoreboard.py'
+    $scoreboardCheck = Join-Path $CopilotProfile 'checks\approved_check.py'
+    Copy-ManagedFile -Source (Join-Path $script:RepoRoot 'config\scoreboard.json') -Destination $scoreboardTarget -Kind 'scoreboard'
+    Copy-ManagedFile -Source (Join-Path $script:RepoRoot 'scripts\scoreboard.py') -Destination $scoreboardScript -Kind 'hook-script'
+    Copy-ManagedFile -Source (Join-Path $script:RepoRoot 'config\checks\approved_check.py') -Destination $scoreboardCheck -Kind 'scoreboard-check'
 
     $hookTarget = Join-Path $hookDirectory 'agent-harness.json'
     $hookConfig = Read-JsonC (Join-Path $script:RepoRoot '.github\hooks\agent-harness.json.example')
@@ -695,12 +713,66 @@ function Install-AgentHarness {
             $hook['env']['ASSURED_ARC_HARNESS_CONFIG'] = $harnessTarget
             $hook['env']['ASSURED_ARC_HARNESS_TRACE_DIR'] = $traceDirectory
             $hook['env']['ASSURED_ARC_HARNESS_TOOL_POLICY'] = $toolPolicyTarget
+            $hook['env']['ASSURED_ARC_SCOREBOARD'] = $scoreboardTarget
+            $hook['env']['ASSURED_ARC_SCOREBOARD_SCRIPT'] = $scoreboardScript
+            $hook['env']['ASSURED_ARC_SCOREBOARD_ROOT'] = [IO.Path]::GetFullPath($CopilotProfile)
         }
     }
     Assert-NoReparsePath $hookTarget
     if (Test-Path -LiteralPath $hookTarget) { Backup-Item $hookTarget } else { Register-Created $hookTarget }
     Invoke-Mutation "Write agent harness hooks to $hookTarget" { Write-Json -Path $hookTarget -Value $hookConfig }
     Register-Managed -Kind 'hook-config' -Target $hookTarget
+    Install-ClaudeAdapters -Destination (Join-Path $Profile 'claude') -PythonHook $pythonTarget -HarnessTarget $harnessTarget -TraceDirectory $traceDirectory -ToolPolicyTarget $toolPolicyTarget -ScoreboardTarget $scoreboardTarget -ScoreboardScript $scoreboardScript -ScoreboardRoot ([IO.Path]::GetFullPath($CopilotProfile))
+}
+
+function Install-ClaudeAdapters {
+    param(
+        [string]$Destination,
+        [string]$PythonHook,
+        [string]$HarnessTarget,
+        [string]$TraceDirectory,
+        [string]$ToolPolicyTarget,
+        [string]$ScoreboardTarget,
+        [string]$ScoreboardScript,
+        [string]$ScoreboardRoot
+    )
+    $python = Get-Command python -ErrorAction SilentlyContinue
+    if (-not $python) { throw 'Python is required to render Claude adapters from the shared contract.' }
+    $expected = @(
+        (Join-Path $Destination 'settings.json'),
+        (Join-Path $Destination 'agent-contract.json')
+    )
+    foreach ($role in @('orchestrator', 'scout', 'researcher', 'implementer', 'verifier', 'critic')) {
+        $expected += Join-Path $Destination ('agents\assured-arc-' + $role + '.md')
+    }
+    foreach ($target in $expected) {
+        Assert-NoReparsePath $target
+        if (Test-Path -LiteralPath $target) { Backup-Item $target } else { Register-Created $target }
+    }
+    $arguments = @(
+        (Join-Path $script:RepoRoot 'scripts\render_contract.py'),
+        '--contract', (Join-Path $script:RepoRoot 'config\agent-contract.json'),
+        '--destination', $Destination,
+        '--command', "python `"$PythonHook`""
+    )
+    foreach ($entry in @(
+        "ASSURED_ARC_HARNESS_HOST=claude",
+        "ASSURED_ARC_HARNESS_CONFIG=$HarnessTarget",
+        "ASSURED_ARC_HARNESS_TRACE_DIR=$TraceDirectory",
+        "ASSURED_ARC_HARNESS_TOOL_POLICY=$ToolPolicyTarget",
+        "ASSURED_ARC_SCOREBOARD=$ScoreboardTarget",
+        "ASSURED_ARC_SCOREBOARD_SCRIPT=$ScoreboardScript",
+        "ASSURED_ARC_SCOREBOARD_ROOT=$ScoreboardRoot"
+    )) { $arguments += @('--env', $entry) }
+    Invoke-Mutation "Render Claude adapters from the shared contract to $Destination" {
+        & $python.Source @arguments
+        if ($LASTEXITCODE -ne 0) { throw 'Claude adapter render failed.' }
+    }
+    Register-Managed -Kind 'claude-settings' -Target (Join-Path $Destination 'settings.json')
+    Register-Managed -Kind 'claude-contract' -Target (Join-Path $Destination 'agent-contract.json')
+    foreach ($role in @('orchestrator', 'scout', 'researcher', 'implementer', 'verifier', 'critic')) {
+        Register-Managed -Kind 'claude-agent' -Target (Join-Path $Destination ('agents\assured-arc-' + $role + '.md'))
+    }
 }
 
 function Install-ArxivMcp {

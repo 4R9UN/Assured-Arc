@@ -82,11 +82,11 @@ bash install/assured-arc.sh \
 
 The installer configures Context7, Sequential Thinking, and arXiv by default for VS Code. When personal CLI installation is selected, the same reviewed servers are merged into `~/.copilot/mcp-config.json` with separate ownership. Review both templates and [MCP.md](MCP.md).
 
-## Native harness and hooks
+## Native harness, scoreboard gate, and hooks
 
-The installer enables native custom agent subagents, keeps nested subagents disabled, and registers the package customization locations. It renders the hook file with absolute local paths so no shell script needs a personal path in the public repository.
+The installer enables native custom agent subagents, keeps nested subagents disabled, and registers the package customization locations. It renders the hook file with absolute local paths so no shell script needs a personal path in the public repository. It also copies `config/scoreboard.json`, `scripts/scoreboard.py`, and `config/checks/approved_check.py` into `<profile-root>/copilot` and renders native Claude Code adapters (`<profile-root>/claude/agents/*.md`, `settings.json`, and `agent-contract.json`) from `config/agent-contract.json`.
 
-Hooks enforce worker and tool budgets, one writer, immutable installed harness paths, and approval for destructive or global operations. VS Code and Copilot CLI use different hook configuration schemas, rendered into the same PowerShell and Python policy implementations. Local traces contain metadata only.
+Hooks enforce worker and tool budgets, one writer, strict human-gated paths, external scoreboard verification on `Stop` after any file edit, and approval for destructive or global operations. VS Code, Copilot CLI, and Claude Code use different hook configuration schemas, rendered into the same PowerShell and Python policy implementations. Local traces contain metadata only.
 
 Copilot CLI’s `subagentStart` event cannot block creation, so CLI worker budgets and one-writer enforcement run before delegation through the `task` tool’s `preToolUse` event. The later subagent events reconcile and release worker state.
 
@@ -97,6 +97,7 @@ After installation, run **Chat: Open Customizations** or open Chat diagnostics a
 3. The six package prompts appear in the slash menu.
 4. Package skills appear alongside existing personal skills.
 5. The package hook file is loaded from the managed profile.
+6. Rendered Claude Code adapters exist under `<profile-root>/claude`.
 
 For Copilot CLI, restart the CLI and verify `copilot --agent assured-arc-orchestrator`, `copilot skill list`, and `copilot mcp list`.
 

@@ -48,6 +48,64 @@ function Write-RunReceipt {
     Move-Item -LiteralPath $temporary -Destination $target
 }
 
+function Get-ScopeText {
+    param($ToolInput)
+    if ($null -eq $ToolInput) { return '' }
+    $parts = @()
+    foreach ($name in @('file_path', 'filePath', 'path', 'command', 'target_directory', 'notebook_path')) {
+        if ($ToolInput.PSObject.Properties.Name -contains $name -and $ToolInput.$name) { $parts += [string]$ToolInput.$name }
+    }
+    return (($parts -join '/') -replace '\\', '/').ToLowerInvariant()
+}
+
+function Get-HumanGateDecision {
+    param([string]$ToolName, $ToolInput, $ToolPolicy)
+    if ($env:ASSURED_ARC_HUMAN_GATE -and $env:ASSURED_ARC_HUMAN_GATE.ToLowerInvariant() -eq 'open') { return $null }
+    $capability = ''
+    $toolProperty = $ToolPolicy.tools.PSObject.Properties[$ToolName]
+    if ($toolProperty) { $capability = [string]$toolProperty.Value }
+    $writeNames = @('apply_patch', 'create', 'create_directory', 'create_file', 'edit', 'edit_notebook_file', 'Edit', 'Write', 'NotebookEdit', 'vscode_renameSymbol')
+    $mutating = ($writeNames -contains $ToolName) -or ($capability -eq 'write') -or ($capability -in @('execute', 'execute-network', 'dependency-mutation', 'external-write', 'destructive'))
+    if (-not $mutating) { return $null }
+    $scope = Get-ScopeText $ToolInput
+    $harnessMarkers = @('agent-harness.json', 'agent-contract.json', 'tool-policy.json', 'scoreboard.json', 'harness_event.py', 'harness-event.ps1', 'scoreboard.py', '.claude/agents', '.claude/settings.json', '.github/agents', '.github/hooks', '.github/skills', 'mcp.json', 'install/assured-arc.ps1', 'install/assured-arc.sh')
+    foreach ($marker in $harnessMarkers) { if ($scope.Contains($marker)) { return @{ decision = 'deny'; reason = 'Harness, skill, hook, MCP, and permission edits are human-gated.' } } }
+    if ($env:ASSURED_ARC_DYNAMIC_WORKFLOWS -ne '1') {
+        foreach ($marker in @('dynamic-workflow', 'dynamicworkflow', 'runtime harness')) {
+            if ($scope.Contains($marker)) { return @{ decision = 'deny'; reason = 'Dynamic workflow generation is opt-in and stays outside daily runs.' } }
+        }
+    }
+    return $null
+}
+
+function Test-ScoreboardPassed {
+    param([string]$Session, [string]$TraceRoot, [string]$Workspace, [string]$ConfigPath)
+    $scoreboard = if ($env:ASSURED_ARC_SCOREBOARD) { $env:ASSURED_ARC_SCOREBOARD } else { Join-Path (Split-Path -Parent $ConfigPath) 'scoreboard.json' }
+    $script = if ($env:ASSURED_ARC_SCOREBOARD_SCRIPT) { $env:ASSURED_ARC_SCOREBOARD_SCRIPT } elseif (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'scoreboard.py')) { Join-Path $PSScriptRoot 'scoreboard.py' } else { Join-Path (Split-Path -Parent $PSScriptRoot) 'scripts\scoreboard.py' }
+    if (-not (Test-Path -LiteralPath $scoreboard) -or -not (Test-Path -LiteralPath $script) -or -not $Workspace) { return $false }
+    $nonceBytes = [byte[]]::new(16)
+    [Security.Cryptography.RandomNumberGenerator]::Fill($nonceBytes)
+    $nonce = ([Convert]::ToHexString($nonceBytes)).ToLowerInvariant()
+    $receipt = Join-Path (Join-Path $TraceRoot 'receipts') "verification-$Session.json"
+    if (Test-Path -LiteralPath $receipt) { Remove-Item -LiteralPath $receipt -Force }
+    $allowRoot = if ($env:ASSURED_ARC_SCOREBOARD_ROOT) { $env:ASSURED_ARC_SCOREBOARD_ROOT } else { Split-Path -Parent $scoreboard }
+    $previousNonce = $env:ASSURED_ARC_SCOREBOARD_NONCE
+    $previousRunning = $env:ASSURED_ARC_SCOREBOARD_RUNNING
+    try {
+        $env:ASSURED_ARC_SCOREBOARD_NONCE = $nonce
+        $env:ASSURED_ARC_SCOREBOARD_RUNNING = '1'
+        & python $script --config $scoreboard --cwd $Workspace --session $Session --trace-dir $TraceRoot --allow-root $allowRoot | Out-Null
+        if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $receipt)) { return $false }
+        $parsed = Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json
+        return $parsed.schema -eq 1 -and $parsed.kind -eq 'verification-receipt' -and $parsed.source -eq 'scoreboard' -and $parsed.status -eq 'pass' -and $parsed.nonce -eq $nonce -and @($parsed.checks).Count -gt 0
+    }
+    catch { return $false }
+    finally {
+        $env:ASSURED_ARC_SCOREBOARD_NONCE = $previousNonce
+        $env:ASSURED_ARC_SCOREBOARD_RUNNING = $previousRunning
+    }
+}
+
 function Test-Pattern {
     param([string]$Text, [string[]]$Patterns)
     foreach ($pattern in $Patterns) { if ($Text -match $pattern) { return $true } }
@@ -67,6 +125,9 @@ function ConvertTo-WorkerName {
 
 function ConvertTo-HostResponse {
     param($Response, [string]$HostName, [string]$EventName)
+    if ($HostName -eq 'claude' -and $Response.Contains('continue') -and $Response.continue -eq $false -and $EventName -eq 'Stop') {
+        return [ordered]@{ decision = 'block'; reason = $(if ($Response.Contains('stopReason') -and $Response.stopReason) { [string]$Response.stopReason } else { 'Verify-after-write blocked completion.' }) }
+    }
     if ($HostName -ne 'copilot-cli') { return $Response }
     $native = [ordered]@{}
     if ($Response.Contains('hookSpecificOutput')) {
@@ -88,7 +149,8 @@ function ConvertTo-HostResponse {
 $raw = [Console]::In.ReadToEnd()
 try { $event = if ([string]::IsNullOrWhiteSpace($raw)) { [pscustomobject]@{} } else { $raw | ConvertFrom-Json } }
 catch { [Console]::Error.WriteLine('Agent harness hook failed: invalid JSON input'); exit 2 }
-$hostName = if ($env:ASSURED_ARC_HARNESS_HOST -and $env:ASSURED_ARC_HARNESS_HOST.ToLowerInvariant() -eq 'copilot-cli') { 'copilot-cli' } else { 'vscode' }
+$hostName = if ($env:ASSURED_ARC_HARNESS_HOST) { $env:ASSURED_ARC_HARNESS_HOST.ToLowerInvariant() } else { 'vscode' }
+if ($hostName -notin @('copilot-cli', 'claude')) { $hostName = 'vscode' }
 $configPath = if ($env:ASSURED_ARC_HARNESS_CONFIG) { $env:ASSURED_ARC_HARNESS_CONFIG } else { Join-Path $HOME '.copilot\agent-harness.json' }
 $traceRoot = if ($env:ASSURED_ARC_HARNESS_TRACE_DIR) { $env:ASSURED_ARC_HARNESS_TRACE_DIR } else { Join-Path $HOME '.assured-arc\harness-runs' }
 $toolPolicyPath = if ($env:ASSURED_ARC_HARNESS_TOOL_POLICY) { $env:ASSURED_ARC_HARNESS_TOOL_POLICY } else { Join-Path (Split-Path -Parent $configPath) 'tool-policy.json' }
@@ -337,6 +399,11 @@ try {
             elseif (-not $capability) {
                 $decision = [string]$toolPolicy.unknownDecision; $reason = 'Unknown tool capability requires review before use.'
             }
+            if ($decision -ne 'deny') {
+                $toolInput = if ($event.PSObject.Properties.Name -contains 'tool_input') { $event.tool_input } else { $null }
+                $gate = Get-HumanGateDecision -ToolName $toolName -ToolInput $toolInput -ToolPolicy $toolPolicy
+                if ($gate) { $decision = [string]$gate.decision; $reason = [string]$gate.reason }
+            }
             if ($decision -ne 'observe') {
                 $response = [ordered]@{
                     hookSpecificOutput = [ordered]@{
@@ -356,6 +423,33 @@ try {
                 }
                 $pending = @($state.active_workers | Where-Object { $_.id -like 'pending:*' -and $_.type -eq $taskAgent } | Select-Object -First 1)
                 if ($pending.Count -eq 1) { $state.active_workers = @($state.active_workers | Where-Object { $_.id -ne $pending[0].id }) }
+            }
+        }
+        'PostToolUse' {
+            $toolName = if ($event.PSObject.Properties.Name -contains 'tool_name') { [string]$event.tool_name } else { '' }
+            $capability = ''
+            $toolProperty = $toolPolicy.tools.PSObject.Properties[$toolName]
+            if ($toolProperty) { $capability = [string]$toolProperty.Value }
+            $writeNames = @('apply_patch', 'create', 'create_directory', 'create_file', 'edit', 'edit_notebook_file', 'Edit', 'Write', 'NotebookEdit', 'vscode_renameSymbol')
+            if ($writeNames -contains $toolName -or $capability -eq 'write') {
+                if ($state.PSObject.Properties.Name -notcontains 'verification_pending') {
+                    $state | Add-Member -NotePropertyName verification_pending -NotePropertyValue $false
+                }
+                $state.verification_pending = $true
+            }
+        }
+        'Stop' {
+            $pending = $state.PSObject.Properties.Name -contains 'verification_pending' -and $state.verification_pending
+            if ($pending) {
+                $workspaceRaw = if ($event.PSObject.Properties.Name -contains 'cwd' -and $event.cwd) { [string]$event.cwd } else { '' }
+                if ($workspaceRaw -and (Test-ScoreboardPassed -Session $session -TraceRoot $traceRoot -Workspace $workspaceRaw -ConfigPath $configPath)) {
+                    $state.verification_pending = $false
+                }
+                else {
+                    $decision = 'deny'
+                    $reason = 'Verify-after-write blocked completion: scoreboard receipt missing or failed.'
+                    $response = [ordered]@{ continue = $false; stopReason = $reason }
+                }
             }
         }
         'PreCompact' {
@@ -417,7 +511,7 @@ try {
 }
 catch {}
 
-if ($eventName -in @('Stop', 'SessionEnd', 'AgentStop')) {
+if ($eventName -in @('Stop', 'SessionEnd', 'AgentStop') -and -not ($response.Contains('continue') -and $response.continue -eq $false)) {
     try {
         $status = if ($eventName -in @('Stop', 'SessionEnd')) { 'completed' } else { 'agent-stopped' }
         Write-RunReceipt -TraceRoot $traceRoot -Session $session -Workspace $workspace -HostName $hostName -State $state -Status $status
@@ -425,7 +519,7 @@ if ($eventName -in @('Stop', 'SessionEnd', 'AgentStop')) {
     catch {}
 }
 
-if ($eventName -in @('Stop', 'SessionEnd')) {
+if ($eventName -in @('Stop', 'SessionEnd') -and -not ($response.Contains('continue') -and $response.continue -eq $false)) {
     Remove-Item -LiteralPath $statePath -Force -ErrorAction SilentlyContinue
 }
 

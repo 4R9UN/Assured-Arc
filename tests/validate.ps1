@@ -27,9 +27,9 @@ $required = @(
     'README.md', 'LICENSE', 'CONTRIBUTING.md', 'SECURITY.md', 'docs/HARNESS.md', 'install.ps1',
     'install/assured-arc.ps1', 'install/uninstall.ps1', 'install/assured-arc.sh', 'install/uninstall.sh',
     'install/doctor.ps1', 'install/doctor.sh', 'install/migrate-legacy.ps1', 'install/migrate-legacy.sh',
-    'hooks/harness-event.ps1', 'hooks/harness_event.py', 'tests/harness_contracts.py', 'tests/harness_evaluator.py',
+    'hooks/harness-event.ps1', 'hooks/harness_event.py', 'scripts/scoreboard.py', 'scripts/render_contract.py', 'tests/harness_contracts.py', 'tests/harness_evaluator.py',
     'config/extensions.json', 'config/user-settings.json', 'config/assured-arc.example.json', 'config/instructions.json', 'config/skill-registry.json', 'config/mcp-servers.json',
-    'config/agent-harness.json', 'config/tool-policy.json', 'config/harness-evaluation-fixtures.json', 'config/install-profiles.json',
+    'config/agent-harness.json', 'config/agent-contract.json', 'config/tool-policy.json', 'config/scoreboard.json', 'config/checks/approved_check.py', 'config/harness-evaluation-fixtures.json', 'config/install-profiles.json',
     'mcp/mcp.json.example', 'mcp/copilot-cli.mcp.json.example',
     '.github/hooks/agent-harness.json.example', '.github/hooks/copilot-cli-harness.json.example',
     '.github/instructions/assured-arc-general-agent.instructions.md', '.github/instructions/assured-arc-agent-harness.instructions.md',
@@ -46,7 +46,7 @@ foreach ($relative in @('install.ps1', 'install/assured-arc.ps1', 'install/unins
     Test-PowerShellSyntax -Path (Join-Path $repoRoot $relative)
 }
 
-foreach ($relative in @('config/extensions.json', 'config/user-settings.json', 'config/assured-arc.example.json', 'config/instructions.json', 'config/skill-registry.json', 'config/mcp-servers.json', 'config/agent-harness.json', 'config/tool-policy.json', 'config/harness-evaluation-fixtures.json', 'config/install-profiles.json', '.github/hooks/agent-harness.json.example', '.github/hooks/copilot-cli-harness.json.example', 'mcp/mcp.json.example', 'mcp/copilot-cli.mcp.json.example')) {
+foreach ($relative in @('config/extensions.json', 'config/user-settings.json', 'config/assured-arc.example.json', 'config/instructions.json', 'config/skill-registry.json', 'config/mcp-servers.json', 'config/agent-harness.json', 'config/agent-contract.json', 'config/tool-policy.json', 'config/scoreboard.json', 'config/harness-evaluation-fixtures.json', 'config/install-profiles.json', '.github/hooks/agent-harness.json.example', '.github/hooks/copilot-cli-harness.json.example', '.claude/settings.json', 'mcp/mcp.json.example', 'mcp/copilot-cli.mcp.json.example')) {
     try {
         Get-Content -LiteralPath (Join-Path $repoRoot $relative) -Raw | ConvertFrom-Json | Out-Null
         Test-Condition -Condition $true -Message "JSON parses: $relative"

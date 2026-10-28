@@ -22,17 +22,35 @@ Add `.prompt.md` files under `.github/prompts/`. Keep each prompt task specific,
 
 Add a folder under `.github/skills/<skill-name>/SKILL.md`. The `name` must match the folder. Explain capability, workflow, prerequisites, practical use, and measurable developer benefit. Add the same ID, category, purpose, and precise trigger phrases to `config/skill-registry.json`. Validation fails when registry IDs and skill folders differ.
 
-## Harness policy and evaluation
+## Harness policy, dual-host contract, and scoreboard
 
-Edit `config/agent-harness.json` only when a verified requirement changes worker, tool, repair, context, trace, or evolution budgets. Update executable fixtures in `config/harness-evaluation-fixtures.json` and deterministic tests in the same change.
+Edit `config/agent-harness.json` or `config/agent-contract.json` only when a verified requirement changes worker, tool, repair, context, trace, or evolution budgets. When updating `config/agent-contract.json`, re-render the repository Claude Code adapters with `scripts/render_contract.py`:
+
+```powershell
+python scripts/render_contract.py `
+  --contract config/agent-contract.json `
+  --destination .claude `
+  --command "python hooks/harness_event.py" `
+  --env ASSURED_ARC_HARNESS_HOST=claude `
+  --env ASSURED_ARC_HARNESS_CONFIG=config/agent-harness.json `
+  --env ASSURED_ARC_HARNESS_TRACE_DIR=.assured-arc/harness-runs `
+  --env ASSURED_ARC_HARNESS_TOOL_POLICY=config/tool-policy.json `
+  --env ASSURED_ARC_SCOREBOARD=config/scoreboard.json `
+  --env ASSURED_ARC_SCOREBOARD_SCRIPT=scripts/scoreboard.py `
+  --env ASSURED_ARC_SCOREBOARD_ROOT=config
+```
+
+Approved post-write verification checks live in `config/scoreboard.json` and `config/checks/*.py`. Each check must use `python` or `python3` with a relative script inside the allowed scoreboard root and literal safe tokens. Agents cannot modify `config/scoreboard.json` or `config/checks/*` during on-task runs because those paths are human-gated (`ASSURED_ARC_HUMAN_GATE=open` required).
+
+Update executable fixtures in `config/harness-evaluation-fixtures.json` and deterministic tests (`tests/harness_contracts.py` and `tests/harness_evaluator.py`) in the same change.
 
 Harness evolution proposals must record repeated failure evidence, root cause, targeted fix, regression risk, and verification results. Evaluate proposals in an isolated profile and disposable worktree. Do not add automatic global promotion.
 
 ## Hooks
 
-The VS Code hook template is `.github/hooks/agent-harness.json.example`. The Copilot CLI user-hook template is `.github/hooks/copilot-cli-harness.json.example`. Cross-platform implementations live under `hooks/`. The installer renders host-native event names, commands, environment paths, and output contracts.
+The VS Code hook template is `.github/hooks/agent-harness.json.example`. The Copilot CLI user-hook template is `.github/hooks/copilot-cli-harness.json.example`. Claude Code hook settings are rendered into `.claude/settings.json` and `<profile-root>/claude/settings.json`. Cross-platform implementations live under `hooks/`. The installer renders host-native event names, commands, scoreboard environment variables (`ASSURED_ARC_SCOREBOARD`, `ASSURED_ARC_SCOREBOARD_SCRIPT`, `ASSURED_ARC_SCOREBOARD_ROOT`), and output contracts.
 
-Hook scripts must validate JSON input, write only valid JSON to standard output, run quickly, avoid network access, and never log prompt text, reasoning, file content, tool arguments, results, environment values, or secrets. Add equivalent behavior to both PowerShell and Python implementations and extend the harness contract tests.
+Hook scripts must validate JSON input, evaluate human-gated path restrictions before fallback policies, enforce external scoreboard verification on `Stop` after any file write, write only valid JSON to standard output, run quickly, avoid network access, and never log prompt text, reasoning, file content, tool arguments, results, environment values, or secrets. Add equivalent behavior to both PowerShell and Python implementations and extend the harness contract tests.
 
 ## Vault
 

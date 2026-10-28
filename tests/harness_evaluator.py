@@ -11,6 +11,7 @@ import sys
 import tempfile
 import time
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
@@ -67,6 +68,46 @@ def bucket(seconds: float) -> str:
     return "15s-plus"
 
 
+def _run_scenario(
+    scenario: dict[str, Any],
+    platforms: list[tuple[str, list[str]]],
+    temp: Path,
+) -> tuple[int, Counter[str], list[dict[str, str]]]:
+    local_failures: list[dict[str, str]] = []
+    local_counts: Counter[str] = Counter()
+    local_events = 0
+    platform_decisions: dict[str, list[str]] = {}
+    platform_responses: dict[str, list[dict[str, Any]]] = {}
+    for platform, command in platforms:
+        trace_root = temp / platform / scenario["id"]
+        decisions: list[str] = []
+        responses: list[dict[str, Any]] = []
+        for event in scenario["events"]:
+            local_events += 1
+            enriched = {"timestamp": "2026-01-01T00:00:00Z", "cwd": str(ROOT), **event}
+            try:
+                response, result = invoke(command, enriched, trace_root)
+            except (RuntimeError, subprocess.TimeoutExpired, json.JSONDecodeError) as error:
+                local_failures.append({"scenario": scenario["id"], "class": "implementation-error", "platform": platform})
+                decisions.append("error")
+                responses.append({"error": type(error).__name__})
+                continue
+            decisions.append(result)
+            responses.append(response)
+            local_counts[result] += 1
+        platform_decisions[platform] = decisions
+        platform_responses[platform] = responses
+        if decisions != scenario["expect"]:
+            local_failures.append({"scenario": scenario["id"], "class": "assertion-failure", "platform": platform})
+        for required in scenario.get("responseContains", []):
+            serialized = json.dumps(responses)
+            if required not in serialized:
+                local_failures.append({"scenario": scenario["id"], "class": "missing-invariant", "platform": platform})
+    if "powershell" in platform_decisions and platform_decisions.get("python") != platform_decisions.get("powershell"):
+        local_failures.append({"scenario": scenario["id"], "class": "platform-drift", "platform": "both"})
+    return local_events, local_counts, local_failures
+
+
 def evaluate() -> dict[str, Any]:
     fixture_data = json.loads(FIXTURES.read_text(encoding="utf-8"))
     failures: list[dict[str, str]] = []
@@ -80,36 +121,13 @@ def evaluate() -> dict[str, Any]:
         platforms.append(("powershell", powershell))
     with tempfile.TemporaryDirectory(prefix="assured-arc-harness-eval-") as temporary:
         temp = Path(temporary)
-        for scenario in fixture_data["scenarios"]:
-            platform_decisions: dict[str, list[str]] = {}
-            platform_responses: dict[str, list[dict[str, Any]]] = {}
-            for platform, command in platforms:
-                trace_root = temp / platform / scenario["id"]
-                decisions: list[str] = []
-                responses: list[dict[str, Any]] = []
-                for event in scenario["events"]:
-                    event_count += 1
-                    enriched = {"timestamp": "2026-01-01T00:00:00Z", "cwd": str(ROOT), **event}
-                    try:
-                        response, result = invoke(command, enriched, trace_root)
-                    except (RuntimeError, subprocess.TimeoutExpired, json.JSONDecodeError) as error:
-                        failures.append({"scenario": scenario["id"], "class": "implementation-error", "platform": platform})
-                        decisions.append("error")
-                        responses.append({"error": type(error).__name__})
-                        continue
-                    decisions.append(result)
-                    responses.append(response)
-                    counts[result] += 1
-                platform_decisions[platform] = decisions
-                platform_responses[platform] = responses
-                if decisions != scenario["expect"]:
-                    failures.append({"scenario": scenario["id"], "class": "assertion-failure", "platform": platform})
-                for required in scenario.get("responseContains", []):
-                    serialized = json.dumps(responses)
-                    if required not in serialized:
-                        failures.append({"scenario": scenario["id"], "class": "missing-invariant", "platform": platform})
-            if "powershell" in platform_decisions and platform_decisions.get("python") != platform_decisions.get("powershell"):
-                failures.append({"scenario": scenario["id"], "class": "platform-drift", "platform": "both"})
+        with ThreadPoolExecutor(max_workers=len(fixture_data["scenarios"])) as pool:
+            futures = [pool.submit(_run_scenario, scenario, platforms, temp) for scenario in fixture_data["scenarios"]]
+            for future in futures:
+                local_events, local_counts, local_failures = future.result()
+                event_count += local_events
+                counts.update(local_counts)
+                failures.extend(local_failures)
         secret = "EVALUATOR-SECRET-MUST-NOT-PERSIST"
         redaction_trace = temp / "redaction"
         invoke(python, {"timestamp": "2026-01-01T00:00:00Z", "cwd": str(ROOT), "session_id": "redaction", "hook_event_name": "UserPromptSubmit", "prompt": secret}, redaction_trace)

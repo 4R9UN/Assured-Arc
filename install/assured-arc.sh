@@ -196,6 +196,14 @@ preflight_install_plan() {
   assert_no_symlink_path "${COPILOT_ROOT}/hooks/agent-harness.json"
   assert_no_symlink_path "${COPILOT_ROOT}/hooks/harness-event.ps1"
   assert_no_symlink_path "${COPILOT_ROOT}/hooks/harness_event.py"
+  assert_no_symlink_path "${COPILOT_ROOT}/hooks/scoreboard.py"
+  assert_no_symlink_path "${COPILOT_ROOT}/scoreboard.json"
+  assert_no_symlink_path "${COPILOT_ROOT}/checks/approved_check.py"
+  assert_no_symlink_path "${PROFILE_ROOT}/claude/settings.json"
+  assert_no_symlink_path "${PROFILE_ROOT}/claude/agent-contract.json"
+  for role in orchestrator scout researcher implementer verifier critic; do
+    assert_no_symlink_path "${PROFILE_ROOT}/claude/agents/assured-arc-${role}.md"
+  done
   for source in "${REPO_ROOT}"/.github/skills/*; do
     [[ -d "$source" ]] || continue
     assert_no_symlink_path "${COPILOT_ROOT}/skills/$(basename "$source")"
@@ -405,11 +413,13 @@ PY
 }
 
 install_agent_harness() {
-  local harness_template hook_template harness_target hook_target powershell_target python_target trace_directory tool_policy_target
+  local harness_template hook_template harness_target hook_target powershell_target python_target trace_directory tool_policy_target scoreboard_target scoreboard_script
   harness_template="${RUNTIME_STATE_DIR}/agent-harness.json"
   hook_template="${RUNTIME_STATE_DIR}/agent-harness-hooks.json"
   harness_target="${COPILOT_ROOT}/agent-harness.json"
   tool_policy_target="${COPILOT_ROOT}/tool-policy.json"
+  scoreboard_target="${COPILOT_ROOT}/scoreboard.json"
+  scoreboard_script="${COPILOT_ROOT}/hooks/scoreboard.py"
   hook_target="${COPILOT_ROOT}/hooks/agent-harness.json"
   powershell_target="${COPILOT_ROOT}/hooks/harness-event.ps1"
   python_target="${COPILOT_ROOT}/hooks/harness_event.py"
@@ -434,11 +444,14 @@ PY
   copy_managed_file "${REPO_ROOT}/config/tool-policy.json" "$tool_policy_target" tool-policy
   copy_managed_file "${REPO_ROOT}/hooks/harness-event.ps1" "$powershell_target" hook-script
   copy_managed_file "${REPO_ROOT}/hooks/harness_event.py" "$python_target" hook-script
-  if [[ "$DRY_RUN" != true ]]; then chmod 700 "$python_target"; fi
+  copy_managed_file "${REPO_ROOT}/scripts/scoreboard.py" "$scoreboard_script" hook-script
+  copy_managed_file "${REPO_ROOT}/config/scoreboard.json" "$scoreboard_target" scoreboard
+  copy_managed_file "${REPO_ROOT}/config/checks/approved_check.py" "${COPILOT_ROOT}/checks/approved_check.py" scoreboard-check
+  if [[ "$DRY_RUN" != true ]]; then chmod 700 "$python_target" "$scoreboard_script"; fi
 
-  python3 - "${REPO_ROOT}/.github/hooks/agent-harness.json.example" "$hook_template" "$harness_target" "$trace_directory" "$powershell_target" "$python_target" "$tool_policy_target" <<'PY'
-import json, sys
-source, target, harness, traces, powershell, python, tool_policy = sys.argv[1:]
+  python3 - "${REPO_ROOT}/.github/hooks/agent-harness.json.example" "$hook_template" "$harness_target" "$trace_directory" "$powershell_target" "$python_target" "$tool_policy_target" "$scoreboard_target" "$scoreboard_script" "$COPILOT_ROOT" <<'PY'
+import json, os, sys
+source, target, harness, traces, powershell, python, tool_policy, scoreboard, scoreboard_script, root = sys.argv[1:]
 data = json.load(open(source, encoding='utf-8'))
 for event_name, hooks in data['hooks'].items():
     for hook in hooks:
@@ -449,11 +462,32 @@ for event_name, hooks in data['hooks'].items():
         hook['env']['ASSURED_ARC_HARNESS_CONFIG'] = harness
         hook['env']['ASSURED_ARC_HARNESS_TRACE_DIR'] = traces
         hook['env']['ASSURED_ARC_HARNESS_TOOL_POLICY'] = tool_policy
+        hook['env']['ASSURED_ARC_SCOREBOARD'] = scoreboard
+        hook['env']['ASSURED_ARC_SCOREBOARD_SCRIPT'] = scoreboard_script
+        hook['env']['ASSURED_ARC_SCOREBOARD_ROOT'] = os.path.abspath(root)
 with open(target, 'w', encoding='utf-8') as stream:
     json.dump(data, stream, indent=2)
     stream.write('\n')
 PY
   copy_managed_file "$hook_template" "$hook_target" hook-config
+  if [[ "$DRY_RUN" != true ]]; then
+    python3 "${REPO_ROOT}/scripts/render_contract.py" \
+      --contract "${REPO_ROOT}/config/agent-contract.json" \
+      --destination "${PROFILE_ROOT}/claude" \
+      --command "python3 \"${python_target}\"" \
+      --env "ASSURED_ARC_HARNESS_HOST=claude" \
+      --env "ASSURED_ARC_HARNESS_CONFIG=${harness_target}" \
+      --env "ASSURED_ARC_HARNESS_TRACE_DIR=${trace_directory}" \
+      --env "ASSURED_ARC_HARNESS_TOOL_POLICY=${tool_policy_target}" \
+      --env "ASSURED_ARC_SCOREBOARD=${scoreboard_target}" \
+      --env "ASSURED_ARC_SCOREBOARD_SCRIPT=${scoreboard_script}" \
+      --env "ASSURED_ARC_SCOREBOARD_ROOT=${COPILOT_ROOT}"
+  fi
+  printf '%s\t%s\n' claude-settings "${PROFILE_ROOT}/claude/settings.json" >> "$MANAGED_FILE"
+  printf '%s\t%s\n' claude-contract "${PROFILE_ROOT}/claude/agent-contract.json" >> "$MANAGED_FILE"
+  for role in orchestrator scout researcher implementer verifier critic; do
+    printf '%s\t%s\n' claude-agent "${PROFILE_ROOT}/claude/agents/assured-arc-${role}.md" >> "$MANAGED_FILE"
+  done
 }
 
 copy_cli_managed_file() {
@@ -519,7 +553,7 @@ PY
   hook_template="${RUNTIME_STATE_DIR}/copilot-cli-hooks.json"
   hook_target="${COPILOT_CLI_ROOT}/hooks/assured-arc.json"
   python3 - "${REPO_ROOT}/.github/hooks/copilot-cli-harness.json.example" "$hook_template" "${COPILOT_ROOT}/agent-harness.json" "${PROFILE_ROOT}/harness-runs" "${COPILOT_ROOT}/hooks/harness-event.ps1" "${COPILOT_ROOT}/hooks/harness_event.py" "${COPILOT_ROOT}/tool-policy.json" <<'PY'
-import json, sys
+import json, os, sys
 source, target, harness, traces, powershell, python, tool_policy = sys.argv[1:]
 data = json.load(open(source, encoding='utf-8'))
 for event_name, hooks in data['hooks'].items():
@@ -532,6 +566,9 @@ for event_name, hooks in data['hooks'].items():
             'ASSURED_ARC_HARNESS_TOOL_POLICY': tool_policy,
             'ASSURED_ARC_HARNESS_HOST': 'copilot-cli',
             'ASSURED_ARC_HARNESS_EVENT': event_name,
+            'ASSURED_ARC_SCOREBOARD': os.path.join(os.path.dirname(os.path.dirname(python)), 'scoreboard.json'),
+            'ASSURED_ARC_SCOREBOARD_SCRIPT': os.path.join(os.path.dirname(python), 'scoreboard.py'),
+            'ASSURED_ARC_SCOREBOARD_ROOT': os.path.dirname(os.path.dirname(python)),
         })
 with open(target, 'w', encoding='utf-8') as stream: json.dump(data, stream, indent=2); stream.write('\n')
 PY

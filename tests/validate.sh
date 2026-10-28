@@ -9,7 +9,7 @@ for script in "${ROOT}/install/assured-arc.sh" "${ROOT}/install/uninstall.sh" "$
   bash -n "$script"
   echo "PASS shell syntax: $(basename "$script")"
 done
-python3 -m py_compile "${ROOT}/hooks/harness_event.py" "${ROOT}/tests/harness_contracts.py" "${ROOT}/tests/harness_evaluator.py"
+python3 -m py_compile "${ROOT}/hooks/harness_event.py" "${ROOT}/scripts/scoreboard.py" "${ROOT}/scripts/render_contract.py" "${ROOT}/tests/harness_contracts.py" "${ROOT}/tests/harness_evaluator.py"
 python3 "${ROOT}/tests/harness_contracts.py"
 python3 "${ROOT}/tests/harness_evaluator.py" --json
 
@@ -20,7 +20,7 @@ for rel in [
     'config/extensions.json', 'config/user-settings.json',
     'config/assured-arc.example.json', 'config/instructions.json', 'config/skill-registry.json', 'config/mcp-servers.json', 'mcp/mcp.json.example',
     'mcp/copilot-cli.mcp.json.example',
-    'config/agent-harness.json', 'config/tool-policy.json', 'config/harness-evaluation-fixtures.json',
+    'config/agent-harness.json', 'config/agent-contract.json', 'config/tool-policy.json', 'config/scoreboard.json', 'config/harness-evaluation-fixtures.json',
     'config/install-profiles.json',
     '.github/hooks/agent-harness.json.example', '.github/hooks/copilot-cli-harness.json.example',
 ]:

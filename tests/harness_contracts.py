@@ -74,6 +74,7 @@ def run_hook(
     traces: Path,
     host: str = "vscode",
     bound_event: str = "",
+    extra_env: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     environment = os.environ.copy()
     environment["ASSURED_ARC_HARNESS_CONFIG"] = str(config)
@@ -82,6 +83,8 @@ def run_hook(
     environment["ASSURED_ARC_HARNESS_HOST"] = host
     if bound_event:
         environment["ASSURED_ARC_HARNESS_EVENT"] = bound_event
+    if extra_env:
+        environment.update(extra_env)
     completed = subprocess.run(
         [sys.executable, str(script)],
         input=json.dumps(payload),
@@ -454,6 +457,123 @@ def validate_python_hook() -> None:
         assert secret not in receipt_text and str(ROOT) not in receipt_text
         state_files = list((traces / "state").glob("*.json"))
         assert all("redaction-session" not in path.name for path in state_files)
+
+        run_hook(
+            script,
+            event("PostToolUse", "verify-gate", tool_name="apply_patch", tool_input={"filePath": "src/app.py"}),
+            config,
+            traces,
+        )
+        blocked_stop = run_hook(script, event("Stop", "verify-gate", stop_hook_active=False), config, traces)
+        assert blocked_stop["continue"] is False
+        assert "scoreboard" in blocked_stop["stopReason"]
+        assert (traces / "state").exists()
+        run_hook(
+            script,
+            event(
+                "PostToolUse",
+                "verify-gate",
+                tool_name="apply_patch",
+                tool_input={"filePath": "verification-receipt.json"},
+            ),
+            config,
+            traces,
+        )
+        forged_stop = run_hook(script, event("Stop", "verify-gate", stop_hook_active=False), config, traces)
+        assert forged_stop["continue"] is False
+
+        scoreboard = temp / "scoreboard"
+        (scoreboard / "checks").mkdir(parents=True)
+        (scoreboard / "checks" / "ok.py").write_text("raise SystemExit(0)\n", encoding="utf-8")
+        (scoreboard / "scoreboard.json").write_text(
+            json.dumps({"schema": 1, "checks": [{"id": "ok", "argv": ["python", "checks/ok.py"], "timeoutSeconds": 30}]}),
+            encoding="utf-8",
+        )
+        workspace = temp / "workspace"
+        workspace.mkdir()
+        scoreboard_env = {
+            "ASSURED_ARC_SCOREBOARD": str(scoreboard / "scoreboard.json"),
+            "ASSURED_ARC_SCOREBOARD_SCRIPT": str(ROOT / "scripts" / "scoreboard.py"),
+            "ASSURED_ARC_SCOREBOARD_ROOT": str(scoreboard),
+        }
+        run_hook(
+            script,
+            event("PostToolUse", "scoreboard-gate", tool_name="Edit", tool_input={"file_path": "src/app.py"}, cwd=str(workspace)),
+            config,
+            traces,
+            extra_env=scoreboard_env,
+        )
+        cleared_stop = run_hook(
+            script,
+            event("Stop", "scoreboard-gate", stop_hook_active=False, cwd=str(workspace)),
+            config,
+            traces,
+            extra_env=scoreboard_env,
+        )
+        assert cleared_stop.get("continue") is not False
+
+        gated = run_hook(
+            script,
+            event("PreToolUse", "human-gate", tool_name="apply_patch", tool_input={"filePath": "config/agent-harness.json"}),
+            config,
+            traces,
+        )
+        assert gated["hookSpecificOutput"]["permissionDecision"] == "deny"
+        assert "human-gated" in gated["hookSpecificOutput"]["permissionDecisionReason"]
+        opened = run_hook(
+            script,
+            event("PreToolUse", "human-gate-open", tool_name="apply_patch", tool_input={"filePath": "config/agent-harness.json"}),
+            config,
+            traces,
+            extra_env={"ASSURED_ARC_HUMAN_GATE": "open"},
+        )
+        assert opened.get("hookSpecificOutput", {}).get("permissionDecision") != "deny"
+
+        claude_block = run_hook(
+            script,
+            event("PostToolUse", "claude-verify", tool_name="Edit", tool_input={"file_path": "src/app.py"}),
+            config,
+            traces,
+            host="claude",
+        )
+        assert claude_block.get("continue", True) is True
+        claude_stop = run_hook(
+            script,
+            event("Stop", "claude-verify", stop_hook_active=False),
+            config,
+            traces,
+            host="claude",
+        )
+        assert claude_stop["decision"] == "block"
+        assert "scoreboard" in claude_stop["reason"]
+
+        contract = load_json("config/agent-contract.json")
+        assert contract["limits"]["writers"] == 1
+        assert contract["limits"]["maximumParallelWorkers"] == 3
+        assert contract["limits"]["delegationDepth"] == 1
+        assert contract["acceptance"]["selfScoreAllowed"] is False
+        assert contract["acceptance"]["requireExternalVerificationAfterWrite"] is True
+        claude_agents = list((ROOT / ".claude/agents").glob("*.md"))
+        assert {path.name for path in claude_agents} == {
+            "assured-arc-orchestrator.md",
+            "assured-arc-scout.md",
+            "assured-arc-researcher.md",
+            "assured-arc-implementer.md",
+            "assured-arc-verifier.md",
+            "assured-arc-critic.md",
+        }
+        implementer = frontmatter(ROOT / ".claude/agents/assured-arc-implementer.md")
+        assert "Bash" not in field(implementer, "tools")
+        assert "Agent" not in field(implementer, "tools")
+        verifier = frontmatter(ROOT / ".claude/agents/assured-arc-verifier.md")
+        assert "Bash" in field(verifier, "tools")
+        assert "Edit" not in field(verifier, "tools") and "Write" not in field(verifier, "tools")
+        settings = load_json(".claude/settings.json")
+        assert "Stop" in settings["hooks"]
+        assert "PostToolUse" in settings["hooks"]
+        stop_hook = settings["hooks"]["Stop"][0]["hooks"][0]
+        assert stop_hook["env"]["ASSURED_ARC_HARNESS_HOST"] == "claude"
+        assert "scoreboard.py" in stop_hook["env"]["ASSURED_ARC_SCOREBOARD_SCRIPT"]
 
         cli_start = run_hook(
             script,

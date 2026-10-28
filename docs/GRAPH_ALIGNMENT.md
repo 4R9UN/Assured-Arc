@@ -17,9 +17,9 @@ The safe decision is selective adoption:
 
 ## Visual architecture
 
-[![Animated pencil-style map of Assured Arc](assets/assured-arc-architecture.gif)](assets/assured-arc-architecture.svg)
+[![Animated architecture map of Assured Arc v1.1.0](assets/assured-arc-architecture.gif)](assets/assured-arc-architecture.svg)
 
-The animation progressively reveals the graph-shaped relationships among host surfaces, policy, workers, context, and evidence. Open the [editable static SVG](assets/assured-arc-architecture.svg) for a motion-free version. The artwork uses a general pencil and paper visual vocabulary, not the characters, wording, or composition of the Agent-Graph artwork. The repository’s configuration, agents, hooks, and tests remain the source of truth.
+The animation reveals the graph-shaped relationships among the dual-host entry surfaces (VS Code, Copilot CLI, and Claude Code), shared contract, lazy skill router, bounded 7-phase loop, isolated workers, and external scoreboard gate. Open the [editable static SVG](assets/assured-arc-architecture.svg) for a motion-free vector diagram. The artwork is original to Assured Arc and does not use the characters, wording, or composition of the Agent-Graph artwork. The repository’s configuration, agents, hooks, and tests remain the source of truth.
 
 ## Alignment with the paper
 

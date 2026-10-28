@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 import argparse
 import os
 import subprocess
@@ -20,9 +21,9 @@ ROOT = Path(__file__).resolve().parents[1]
 ASSET_DIR = ROOT / "docs" / "assets"
 PLAYWRIGHT_ROOT = Path(os.environ["LOCALAPPDATA"]) / "ms-playwright"
 ASSETS = {
-    "assured-arc-architecture": (1000, 622, 4.0),
-    "assured-arc-harness-architecture": (1000, 625, 4.0),
-    "assured-arc-installation-flow": (1000, 575, 4.0),
+    "assured-arc-architecture": (1280, 768, 4.0),
+    "assured-arc-harness-architecture": (1280, 760, 4.0),
+    "assured-arc-installation-flow": (1280, 720, 4.0),
 }
 
 SVG_NS = "http://www.w3.org/2000/svg"
@@ -188,13 +189,17 @@ def capture(name: str, width: int, height: int, duration: float, fps: int) -> No
     frame_ms = round(1000 / fps)
     with tempfile.TemporaryDirectory(prefix=f"{name}-") as temporary:
         temp = Path(temporary)
-        rgb_frames: list[Image.Image] = []
-        for index in range(frame_count):
-            frame = temp / f"frame-{index:03d}.png"
-            _render_frame(source, frame, index / fps, width, height)
-            rgb_frames.append(Image.open(frame).convert("RGB"))
+        frame_paths = [temp / f"frame-{index:03d}.png" for index in range(frame_count)]
+        with ThreadPoolExecutor(max_workers=min(8, os.cpu_count() or 4)) as pool:
+            futures = [
+                pool.submit(_render_frame, source, frame_paths[index], index / fps, width, height)
+                for index in range(frame_count)
+            ]
+            for future in futures:
+                future.result()
+        rgb_frames = [Image.open(frame).convert("RGB") for frame in frame_paths]
 
-        palette = rgb_frames[0].quantize(colors=128, method=Image.Quantize.MEDIANCUT)
+        palette = rgb_frames[0].quantize(colors=128, method=Image.Quantize.FASTOCTREE)
         frames = [
             image.quantize(palette=palette, dither=Image.Dither.NONE)
             for image in rgb_frames
@@ -215,7 +220,7 @@ def capture(name: str, width: int, height: int, duration: float, fps: int) -> No
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("names", nargs="*", choices=sorted(ASSETS))
-    parser.add_argument("--fps", type=int, default=6)
+    parser.add_argument("--fps", type=int, default=8)
     args = parser.parse_args()
     names = args.names or list(ASSETS)
     for name in names:

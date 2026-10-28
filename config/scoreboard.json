@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "version": "1.1.0",
+  "purpose": "Approved checks the Stop hook may run. A passing receipt is written only by scripts/scoreboard.py after every check exits 0. Agents cannot add checks.",
+  "checks": [
+    {
+      "id": "approved-check",
+      "argv": ["python", "checks/approved_check.py"],
+      "timeoutSeconds": 30
+    }
+  ]
+}
+

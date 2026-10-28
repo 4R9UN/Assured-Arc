@@ -96,4 +96,17 @@ Visible agents offer reviewable handoff buttons for the smallest common flow:
 
 Architecture can also start Development directly, and Documentation hands off to QA. Every handoff uses `send: false`, so the user can inspect or edit the prepared prompt before sending. Hidden disposable workers and their tool scopes are unchanged.
 
-See [HARNESS.md](HARNESS.md) for budgets, hooks, context policy, daily use, and the separate harness evolution workflow.
+## Claude Code role adapters
+
+`scripts/render_contract.py` renders six native Claude Code agents under `.claude/agents/` (and `<profile-root>/claude/agents/` during installation) from the canonical [config/agent-contract.json](../config/agent-contract.json) policy without copying Copilot `.agent.md` files:
+
+| Claude Agent | Mapped Tools | Write Access | Responsibility |
+| --- | --- | --- | --- |
+| `assured-arc-orchestrator` | `Read, Grep, Glob, Agent` | No | Restates acceptance criteria, selects `≤ 3` skills and `≤ 3` workers (`depth = 1`), assigns `1` writer |
+| `assured-arc-scout` | `Read, Grep, Glob` | No | Maps repository files and constraints without editing or spawning agents |
+| `assured-arc-researcher` | `Read, Grep, Glob, WebFetch, WebSearch` | No | Gathers external evidence without editing or spawning agents |
+| `assured-arc-implementer` | `Read, Edit, Write, Grep, Glob` | Yes (`1` writer) | Edits only the assigned write scope; `Stop` hook triggers external scoreboard verification |
+| `assured-arc-verifier` | `Read, Grep, Glob, Bash` | No | Verifies completed writes against literal acceptance criteria; cannot edit or self-mint receipts |
+| `assured-arc-critic` | `Read, Grep, Glob` | No | Inspects bounded changes for blocking correctness, security, or regression gaps |
+
+See [HARNESS.md](HARNESS.md) for budgets, hooks, external scoreboard verification, context policy, daily use, and the separate harness evolution workflow.

@@ -8,6 +8,8 @@ import hashlib
 import json
 import os
 import re
+import secrets
+import subprocess
 import sys
 import time
 from datetime import datetime, timedelta, timezone
@@ -44,6 +46,36 @@ ASK_PATTERNS = (
     r"\b(?:rm\s+-rf|remove-item\b.*-recurse|del\s+/[sq]|rmdir\s+/[sq])\b",
     r"\binstall[/\\]assured-arc\.(?:ps1|sh)\b",
 )
+WRITE_TOOLS = {
+    "apply_patch",
+    "create",
+    "create_directory",
+    "create_file",
+    "edit",
+    "edit_notebook_file",
+    "Edit",
+    "Write",
+    "NotebookEdit",
+    "vscode_renameSymbol",
+}
+HARNESS_PATH_MARKERS = (
+    "agent-harness.json",
+    "agent-contract.json",
+    "tool-policy.json",
+    "scoreboard.json",
+    "harness_event.py",
+    "harness-event.ps1",
+    "scoreboard.py",
+    ".claude/agents",
+    ".claude/settings.json",
+    ".github/agents",
+    ".github/hooks",
+    ".github/skills",
+    "mcp.json",
+    "install/assured-arc.ps1",
+    "install/assured-arc.sh",
+)
+DYNAMIC_WORKFLOW_MARKERS = ("dynamic-workflow", "dynamicworkflow", "runtime harness")
 CLI_EVENT_NAMES = {
     "sessionStart": "SessionStart",
     "sessionEnd": "SessionEnd",
@@ -157,7 +189,126 @@ def _release_pending_worker(state: dict[str, Any], agent_type: str) -> None:
             return
 
 
+def _is_write(tool_name: str, tool_policy: dict[str, Any]) -> bool:
+    if tool_name in WRITE_TOOLS:
+        return True
+    return str(tool_policy.get("tools", {}).get(tool_name, "")) == "write"
+
+
+def _scope_text(tool_input: Any) -> str:
+    if not isinstance(tool_input, dict):
+        return _normalize(tool_input)
+    parts = [
+        str(tool_input[key])
+        for key in ("file_path", "filePath", "path", "command", "target_directory", "notebook_path")
+        if key in tool_input
+    ]
+    return _normalize({"paths": parts})
+
+
+def _human_gate_decision(tool_name: str, tool_input: Any, tool_policy: dict[str, Any]) -> tuple[str | None, str | None]:
+    if os.environ.get("ASSURED_ARC_HUMAN_GATE", "").strip().lower() == "open":
+        return None, None
+    scope = _scope_text(tool_input)
+    capability = str(tool_policy.get("tools", {}).get(tool_name, ""))
+    mutating = _is_write(tool_name, tool_policy) or capability in {
+        "execute",
+        "execute-network",
+        "dependency-mutation",
+        "external-write",
+        "destructive",
+    }
+    if not mutating:
+        return None, None
+    if any(marker in scope for marker in HARNESS_PATH_MARKERS):
+        return "deny", "Harness, skill, hook, MCP, and permission edits are human-gated."
+    dynamic_open = os.environ.get("ASSURED_ARC_DYNAMIC_WORKFLOWS", "").strip() == "1"
+    if not dynamic_open and any(marker in scope for marker in DYNAMIC_WORKFLOW_MARKERS):
+        return "deny", "Dynamic workflow generation is opt-in and stays outside daily runs."
+    return None, None
+
+
+def _scoreboard_script() -> Path:
+    override = os.environ.get("ASSURED_ARC_SCOREBOARD_SCRIPT", "").strip()
+    if override:
+        return Path(override).expanduser()
+    sibling = Path(__file__).with_name("scoreboard.py")
+    if sibling.is_file():
+        return sibling
+    return Path(__file__).resolve().parents[1] / "scripts" / "scoreboard.py"
+
+
+def _scoreboard_config(config_path: Path) -> Path | None:
+    override = os.environ.get("ASSURED_ARC_SCOREBOARD", "").strip()
+    if override:
+        return Path(override).expanduser()
+    sibling = config_path.parent / "scoreboard.json"
+    return sibling if sibling.is_file() else None
+
+
+def _scoreboard_passed(session: str, trace_dir: Path, cwd: str, config_path: Path) -> bool:
+    config = _scoreboard_config(config_path)
+    script = _scoreboard_script()
+    if config is None or not config.is_file() or not script.is_file():
+        return False
+    nonce = secrets.token_hex(16)
+    receipt_path = trace_dir / "receipts" / f"verification-{session}.json"
+    with contextlib.suppress(OSError):
+        receipt_path.unlink()
+    environment = os.environ.copy()
+    environment["ASSURED_ARC_SCOREBOARD_NONCE"] = nonce
+    environment["ASSURED_ARC_SCOREBOARD_RUNNING"] = "1"
+    allow_root = os.environ.get("ASSURED_ARC_SCOREBOARD_ROOT", "").strip() or str(config.parent)
+    try:
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(script),
+                "--config",
+                str(config),
+                "--cwd",
+                str(Path(cwd).expanduser()),
+                "--session",
+                session,
+                "--trace-dir",
+                str(trace_dir),
+                "--allow-root",
+                allow_root,
+            ],
+            env=environment,
+            shell=False,
+            capture_output=True,
+            text=True,
+            timeout=120,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    if completed.returncode != 0 or not receipt_path.is_file():
+        return False
+    try:
+        receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    checks = receipt.get("checks")
+    return (
+        receipt.get("schema") == 1
+        and receipt.get("kind") == "verification-receipt"
+        and receipt.get("source") == "scoreboard"
+        and receipt.get("status") == "pass"
+        and receipt.get("nonce") == nonce
+        and isinstance(checks, list)
+        and bool(checks)
+        and all(isinstance(item, dict) and item.get("status") == "pass" for item in checks)
+    )
+
+
 def _host_response(response: dict[str, Any], host: str, event_name: str) -> dict[str, Any]:
+    if host == "claude" and response.get("continue") is False and event_name == "Stop":
+        return {
+            "decision": "block",
+            "reason": str(response.get("stopReason") or "Verify-after-write blocked completion."),
+        }
     if host != "copilot-cli":
         return response
 
@@ -185,7 +336,7 @@ def _locked_state(path: Path) -> Iterator[dict[str, int]]:
             fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
         state = _load_json(
             path,
-            {"subagents_started": 0, "active_workers": {}, "tool_calls": 0, "writer_invocations": 0, "failure_counts": {}, "decision_counts": {}},
+            {"subagents_started": 0, "active_workers": {}, "tool_calls": 0, "writer_invocations": 0, "failure_counts": {}, "decision_counts": {}, "verification_pending": False},
         )
         state.setdefault("subagents_started", 0)
         state.setdefault("active_workers", {})
@@ -193,6 +344,7 @@ def _locked_state(path: Path) -> Iterator[dict[str, int]]:
         state.setdefault("writer_invocations", 0)
         state.setdefault("failure_counts", {})
         state.setdefault("decision_counts", {})
+        state.setdefault("verification_pending", False)
         yield state
         temporary = path.with_suffix(f".tmp-{os.getpid()}")
         temporary.write_text(json.dumps(state, separators=(",", ":")), encoding="utf-8")
@@ -285,7 +437,8 @@ def main() -> int:
     except json.JSONDecodeError as exc:
         raise ValueError("Invalid hook JSON input.") from exc
 
-    host = "copilot-cli" if os.environ.get("ASSURED_ARC_HARNESS_HOST", "").strip().lower() == "copilot-cli" else "vscode"
+    host_name = os.environ.get("ASSURED_ARC_HARNESS_HOST", "").strip().lower()
+    host = host_name if host_name in {"copilot-cli", "claude"} else "vscode"
     config_path = Path(os.environ.get("ASSURED_ARC_HARNESS_CONFIG", str(DEFAULT_CONFIG))).expanduser()
     trace_dir = Path(os.environ.get("ASSURED_ARC_HARNESS_TRACE_DIR", str(DEFAULT_TRACE_DIR))).expanduser()
     tool_policy_path = Path(os.environ.get("ASSURED_ARC_HARNESS_TOOL_POLICY", str(config_path.parent / "tool-policy.json"))).expanduser()
@@ -313,7 +466,7 @@ def main() -> int:
     with _locked_state(state_path) as state:
         if event_name == "SessionStart":
             state.clear()
-            state.update({"subagents_started": 0, "active_workers": {}, "tool_calls": 0, "writer_invocations": 0, "failure_counts": {}, "decision_counts": {}})
+            state.update({"subagents_started": 0, "active_workers": {}, "tool_calls": 0, "writer_invocations": 0, "failure_counts": {}, "decision_counts": {}, "verification_pending": False})
             response = {
                 "hookSpecificOutput": {
                     "hookEventName": "SessionStart",
@@ -441,14 +594,18 @@ def main() -> int:
                         state["writer_invocations"] += 1
                     decision, reason = "allow", "Delegation is within the bounded worker policy."
             else:
-                decision, reason = _tool_decision(
-                    tool_name,
-                    _normalize(event.get("tool_input", {})),
-                    state["tool_calls"],
-                    int(loop.get("maximumToolCallsPerSession", 48)),
-                    [str(root) for root in config.get("protectedRoots", [])],
-                    tool_policy,
-                )
+                gated, gate_reason = _human_gate_decision(tool_name, event.get("tool_input", {}), tool_policy)
+                if gated:
+                    decision, reason = gated, gate_reason
+                else:
+                    decision, reason = _tool_decision(
+                        tool_name,
+                        _normalize(event.get("tool_input", {})),
+                        state["tool_calls"],
+                        int(loop.get("maximumToolCallsPerSession", 48)),
+                        [str(root) for root in config.get("protectedRoots", [])],
+                        tool_policy,
+                    )
             if decision:
                 response = {
                     "hookSpecificOutput": {
@@ -463,6 +620,21 @@ def main() -> int:
                 task_agent = _task_worker(event, allowed_workers)
                 if task_agent in allowed_workers:
                     _release_pending_worker(state, task_agent)
+        elif event_name == "PostToolUse":
+            tool_name = str(event.get("tool_name") or "")
+            if _is_write(tool_name, tool_policy):
+                state["verification_pending"] = True
+        elif event_name == "Stop" and state.get("verification_pending"):
+            raw_cwd = str(event.get("cwd") or "")
+            if raw_cwd and _scoreboard_passed(session, trace_dir, raw_cwd, config_path):
+                state["verification_pending"] = False
+            else:
+                response = {
+                    "continue": False,
+                    "stopReason": "Verify-after-write blocked completion: scoreboard receipt missing or failed.",
+                }
+                decision = "deny"
+                reason = response["stopReason"]
         elif event_name == "PreCompact":
             fields = [str(item) for item in config.get("context", {}).get("preserveAcrossCompaction", [])]
             response = {
@@ -496,7 +668,7 @@ def main() -> int:
             },
         )
 
-    if event_name in {"Stop", "SessionEnd", "AgentStop"}:
+    if event_name in {"Stop", "SessionEnd", "AgentStop"} and response.get("continue") is not False:
         _write_receipt(
             trace_dir,
             {
@@ -512,7 +684,7 @@ def main() -> int:
             },
         )
 
-    if event_name in {"Stop", "SessionEnd"}:
+    if event_name in {"Stop", "SessionEnd"} and response.get("continue") is not False:
         with contextlib.suppress(OSError):
             state_path.unlink()
         with contextlib.suppress(OSError):

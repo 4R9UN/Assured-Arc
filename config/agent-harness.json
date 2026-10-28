@@ -1,5 +1,6 @@
 {
   "schema": 1,
+  "version": "1.1.0",
   "name": "Assured Arc Disposable Agent Harness",
   "runtime": "github-copilot-subagents",
   "protectedRoots": [

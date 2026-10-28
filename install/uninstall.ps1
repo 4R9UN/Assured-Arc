@@ -81,9 +81,13 @@ function Assert-ManagedTargetOwnership {
     param($Managed)
     $kind = [string]$Managed.kind
     $target = [string]$Managed.target
-    $copilotKinds = @('skill', 'skill-registry', 'instruction', 'agent', 'prompt', 'agent-harness', 'tool-policy', 'hook-script', 'hook-config')
+    $copilotKinds = @('skill', 'skill-registry', 'instruction', 'agent', 'prompt', 'agent-harness', 'tool-policy', 'hook-script', 'hook-config', 'scoreboard', 'scoreboard-check')
     if ($kind -in $copilotKinds) {
         if (-not (Test-PathWithin -Path $target -Root $expectedCopilotRoot)) { throw "Managed $kind target is outside the selected Copilot root: $target" }
+        return
+    }
+    if ($kind -in @('claude-settings', 'claude-contract', 'claude-agent')) {
+        if (-not (Test-PathWithin -Path $target -Root (Join-Path ([string]$state.profileRoot) 'claude'))) { throw "Managed $kind target is outside the recorded Claude adapter root: $target" }
         return
     }
     if ($kind -in @('cli-agent', 'cli-instruction', 'cli-hook-config')) {

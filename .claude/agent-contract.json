@@ -1,0 +1,98 @@
+{
+  "schema": 1,
+  "version": "1.1.0",
+  "purpose": "Shared bounded-task contract rendered into Copilot and Claude adapters. On-task work may restate acceptance criteria, select existing roles, and narrow write scope. It may not add agents, skills, hooks, MCP servers, or permission changes.",
+  "hosts": [
+    "copilot",
+    "claude"
+  ],
+  "limits": {
+    "delegationDepth": 1,
+    "maximumParallelWorkers": 3,
+    "maximumSelectedSkills": 3,
+    "maximumRepairIterations": 2,
+    "writers": 1,
+    "dynamicWorkflows": "opt-in",
+    "harnessChanges": "human-gated"
+  },
+  "onTaskMay": [
+    "restate acceptance criteria",
+    "select existing roles",
+    "select at most three reviewed skills",
+    "narrow write scope"
+  ],
+  "onTaskMayNot": [
+    "create agents",
+    "create skills",
+    "create hooks",
+    "add MCP servers",
+    "change permissions",
+    "generate a runtime harness"
+  ],
+  "roles": {
+    "orchestrator": {
+      "tools": [
+        "read",
+        "search",
+        "agent"
+      ],
+      "writes": false
+    },
+    "scout": {
+      "tools": [
+        "read",
+        "search"
+      ],
+      "writes": false
+    },
+    "researcher": {
+      "tools": [
+        "read",
+        "search",
+        "web",
+        "context7/*",
+        "sequential-thinking/*",
+        "arxiv/*"
+      ],
+      "writes": false
+    },
+    "implementer": {
+      "tools": [
+        "read",
+        "edit",
+        "search"
+      ],
+      "writes": true
+    },
+    "verifier": {
+      "tools": [
+        "read",
+        "search",
+        "execute"
+      ],
+      "writes": false
+    },
+    "critic": {
+      "tools": [
+        "read",
+        "search"
+      ],
+      "writes": false
+    }
+  },
+  "acceptance": {
+    "source": "deterministic scoreboard",
+    "selfScoreAllowed": false,
+    "requireExternalVerificationAfterWrite": true
+  },
+  "verification": {
+    "owner": "verifier",
+    "afterWrite": "hook",
+    "receiptFields": [
+      "schema",
+      "session",
+      "status",
+      "checks"
+    ]
+  }
+}

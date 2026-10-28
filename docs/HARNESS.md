@@ -79,6 +79,12 @@ The loop stops when any condition is true:
 - An operation is unsafe or outside scope.
 - A material ambiguity cannot be resolved from trusted local evidence.
 
+## Dual-host contract
+
+`config/agent-contract.json` is the shared policy. The installer renders `.claude/agents` from that contract and does not copy Copilot agent files into Claude. On-task work may restate acceptance criteria, pick existing roles, select at most three reviewed skills, and narrow write scope. It may not create agents, skills, hooks, MCP servers, or permission changes.
+
+Verify-after-write is a hook, not a prompt. A write tool marks the session pending. `Stop` stays blocked until `scripts/scoreboard.py` runs the approved checks in `config/scoreboard.json` and writes a passing `verification-receipt`. A filename or model-written receipt does not clear the gate. Claude `Stop` returns `decision: block` with `reason`. Dynamic workflows stay opt-in through `ASSURED_ARC_DYNAMIC_WORKFLOWS=1`. Harness, skill, hook, MCP, and permission edits stay denied unless a human sets `ASSURED_ARC_HUMAN_GATE=open`.
+
 ## Hooks and privacy
 
 Hooks are supported by VS Code and Copilot CLI. Each host receives its documented event and output schema, while both execute the same metadata-only policy logic.
@@ -138,10 +144,12 @@ The full comparison and adoption gate are documented in [Graph and Agent Alignme
 
 The package validates:
 
-- exact coordinator and worker capability boundaries
+- exact coordinator and worker capability boundaries across Copilot and Claude adapters
+- shared contract (`config/agent-contract.json`) parity and deterministic Claude rendering (`scripts/render_contract.py`)
 - one writer and no nested delegation
 - worker, tool, and repair budgets
-- protected global harness paths
+- strict human-gated path precedence before fallback policies (`ASSURED_ARC_HUMAN_GATE`)
+- external scoreboard verification gate (`scripts/scoreboard.py`), cryptographic nonce matching, and forged receipt rejection
 - approval for destructive and global operations
 - trace field allowlisting and secret redaction
 - terminal receipt allowlisting, hashing, redaction, and atomic creation
