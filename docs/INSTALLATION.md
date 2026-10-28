@@ -21,10 +21,6 @@ The installer needs the `code` command only when extension installation is enabl
 
 Repository agents and skills are automatically available to Copilot CLI when it runs in this repository. Add `-InstallCopilotCli` or `--install-copilot-cli` only when Assured Arc should be available across all repositories in the personal CLI profile.
 
-[![Animated installation and rollback map](assets/assured-arc-installation-flow.gif)](assets/assured-arc-installation-flow.svg)
-
-The diagram summarizes the reversible lifecycle. The scripts, manifests, state file, and validation suite remain the source of truth.
-
 The default managed customization root is `~/.assured-arc/copilot`. VS Code settings point to its agents, prompts, skills, instructions, and hook file. Existing personal skills under `~/.copilot/skills` remain available through normal VS Code discovery and are not overwritten.
 
 ## Install profiles

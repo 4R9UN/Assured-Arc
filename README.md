@@ -1,8 +1,14 @@
 # Assured Arc
 
-[![Release](https://img.shields.io/badge/release-v1.1.0-0284C7?style=flat-square)](CHANGELOG.md)
+[![Validate](https://github.com/4R9UN/Assured-Arc/actions/workflows/validate.yml/badge.svg)](https://github.com/4R9UN/Assured-Arc/actions/workflows/validate.yml)
+[![Release](https://img.shields.io/badge/release-v1.1.0-0284C7?style=flat-square&logo=github)](https://github.com/4R9UN/Assured-Arc/releases/tag/v1.1.0)
 [![Hosts](https://img.shields.io/badge/hosts-VS%20Code%20%7C%20Copilot%20CLI%20%7C%20Claude%20Code-9333EA?style=flat-square)](#at-a-glance)
-[![Safety](https://img.shields.io/badge/governance-Single--Writer%20%2B%20Scoreboard%20Gate-10B981?style=flat-square)](docs/HARNESS.md)
+[![Agents](https://img.shields.io/badge/agents-7%20Visible%20%2B%205%20Disposable%20%2B%206%20Claude-38BDF8?style=flat-square)](docs/AGENTS.md)
+[![Skills](https://img.shields.io/badge/skills-28%20Lazy--Loaded-10B981?style=flat-square)](docs/SKILLS.md)
+[![Web Research](https://img.shields.io/badge/web%20research-Live%20Surfing%20%2B%20Context7%20%2B%20arXiv-A855F7?style=flat-square)](docs/SKILLS.md#assured-arc-web-research)
+[![Governance](https://img.shields.io/badge/governance-Single--Writer%20%2B%20Scoreboard%20Gate-059669?style=flat-square)](docs/HARNESS.md)
+[![Human Gate](https://img.shields.io/badge/human%20gate-Protected%20Control%20Plane-E11D48?style=flat-square)](docs/HARNESS.md)
+[![Platforms](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-475569?style=flat-square)](docs/INSTALLATION.md)
 [![License: MIT](https://img.shields.io/badge/license-MIT-F59E0B?style=flat-square)](LICENSE)
 
 > A public, safety-first workbench for repeatable AI engineering workflows across **VS Code**, **GitHub Copilot CLI**, and **Claude Code**—featuring a shared dual-host agent contract, disposable subagents, lazy-loaded skills, deterministic human-gated hooks, external scoreboard verification, optional Obsidian knowledge management, and reviewed research MCP tools.
@@ -18,7 +24,7 @@ It is built for developers, engineering teams, workshops, and maintainers who ne
 - **Shared Dual-Host Contract (`config/agent-contract.json` + `scripts/render_contract.py`)**: One canonical JSON contract (`v1.1.0`) defines role capabilities, delegation depth (`1`), single-writer concurrency (`1`), parallel worker limits (`3`), skill budgets (`3`), and repair limits (`2`), rendering native Claude Code adapters (`.claude/agents/*.md`, `.claude/settings.json`) without copying Copilot agent files.
 - **External Scoreboard Verification Gate (`scripts/scoreboard.py` + `config/scoreboard.json`)**: Verify-after-write is enforced by deterministic hooks rather than prompt instructions. Any file write sets `pendingVerification = true`, blocking `Stop` completion until `scripts/scoreboard.py` executes approved checks (`config/checks/approved_check.py`) and writes a session- and cryptographic `verificationNonce`-matched `verification-receipt`.
 - **Strict Human-Gated Path Precedence**: `PreToolUse` hooks (`hooks/harness_event.py` and `hooks/harness-event.ps1`) evaluate human-gated boundaries first, strictly denying on-task edits to `.github/agents`, `.github/skills`, `.github/hooks`, `.claude/agents`, `.claude/settings.json`, `mcp.json`, `hooks/`, `scripts/`, `install/`, and `config/*` before fallback policies (`ask`) unless `ASSURED_ARC_HUMAN_GATE=open` is set by a human.
-- **Sharp, High-Contrast Animated Architecture Assets**: Redesigned SVG and 12 FPS GIF visual maps (`docs/assets/assured-arc-*.{svg,gif}`) illustrating the dual-host entry surfaces, bounded 7-phase loop, single-writer lock, and scoreboard nonce verification flow.
+- **Web Research & Surfing Skill (`assured-arc-web-research`)**: Added a portable skill for live web search (`web`, `WebSearch`), primary URL fetching (`WebFetch`, `fetch_webpage`), source provenance, and untrusted web content quarantine.
 
 ## At a glance
 
@@ -29,9 +35,9 @@ It is built for developers, engineering teams, workshops, and maintainers who ne
 | **Agents** | 7 visible Copilot specialists, 5 hidden disposable Copilot workers, and 6 contract-rendered Claude Code role adapters |
 | **Hosts** | VS Code by default, native Claude Code adapter rendering (`.claude/` & `<profile-root>/claude`), plus explicit personal-profile opt-in for GitHub Copilot CLI |
 | **Orchestration** | Native coordinator, single implementation writer, delegation depth `1`, up to `3` concurrent workers, external scoreboard verification, and bounded repair (`≤ 2`) |
-| **Skills & prompts** | 27 portable lazy-loaded skills (`config/skill-registry.json`) and 6 VS Code reusable slash-command prompts (`.github/prompts/*.prompt.md`) |
+| **Skills & prompts** | 28 portable lazy-loaded skills (`config/skill-registry.json`, including `assured-arc-web-research`) and 6 VS Code reusable slash-command prompts (`.github/prompts/*.prompt.md`) |
 | **Verification gate** | Hook-enforced `scripts/scoreboard.py` + `config/scoreboard.json` with 32-hex cryptographic nonce receipts (`selfScoreAllowed: false`) |
-| **MCP research** | Context7 (HTTPS), Sequential Thinking `2026.7.4`, and isolated `uv`-managed arXiv MCP `0.5.1` |
+| **Web & MCP research** | Host live web surfing (`web`, `WebSearch`, `WebFetch`), Context7 (HTTPS), Sequential Thinking `2026.7.4`, and isolated `uv`-managed arXiv MCP `0.5.1` |
 | **Knowledge** | Optional portable Markdown and Obsidian vault template (`vault-template/`) |
 | **Safety** | Strict human-gated path precedence, least-privilege tool scopes, state SHA-256 integrity, metadata-only traces, public safety checks, and explicit approval boundaries |
 
@@ -83,18 +89,18 @@ This repository provides a manifest-driven setup with safe defaults:
 | **Safe installation** | Install profiles (`Minimal`, `Research`, `Full`, `CopilotCli`), merged settings, state SHA-256 checksum, backups, `doctor`, rollback, and uninstall | Existing unrelated settings and MCP entries are preserved |
 | **Dual-host contract** | Canonical `config/agent-contract.json` rendered into Claude Code adapters (`.claude/agents/*.md`, `.claude/settings.json`) alongside Copilot | Never copies Copilot agent files into Claude; forbids runtime agent/skill invention |
 | **Native orchestration** | Coordinator plus Scout, Researcher, Implementer, Verifier, and Critic workers | Delegation depth `1`, `1` active writer, `≤ 3` parallel workers, and no nested subagents |
-| **Context-efficient skills** | Compact registry selects up to `3` domain skills, with Development Quality added for code changes | The full 27-skill library is never injected into every prompt |
+| **Context-efficient skills** | Compact registry selects up to `3` domain skills, with Development Quality added for code changes | The full 28-skill library is never injected into every prompt |
 | **Scoreboard verification gate** | Hook-driven `scripts/scoreboard.py` runs approved checks (`config/scoreboard.json`) after any file edit | `Stop` hook blocks completion until a session- and nonce-matched receipt passes; no self-scoring |
-| **Research tooling** | Current library docs (Context7), structured analysis (Sequential Thinking), and academic paper search (arXiv) | MCP tools are available to researchers, never to the implementation writer |
+| **Web & research tooling** | Live web surfing (`assured-arc-web-research`), current library docs (Context7), structured analysis (Sequential Thinking), and paper search (arXiv) | Web and MCP tools are available to read-only researchers, never to the implementation writer |
 | **Deterministic policy hooks** | Strict human-gated path precedence, worker/tool budgets, approval checks, and metadata-only traces | Traces and run receipts exclude prompts, reasoning, file contents, arguments, results, and secrets |
 | **Durable project context** | Optional Markdown and Obsidian vault with MOCs and project templates | Private artifacts stay under `local-only/` |
 | **Public package safety** | Generic examples, secret-free templates, and automated public-safety scans | No tenant data, personal paths, internal URLs, or private MCP endpoints |
 
 ## Architecture
 
-[![Animated architecture map of Assured Arc v1.1.0](docs/assets/assured-arc-architecture.gif)](docs/assets/assured-arc-architecture.svg)
+[![Assured Arc Architecture](docs/assets/assured-arc-architecture.gif)](docs/assets/assured-arc-architecture.svg)
 
-The animated architecture map illustrates how developer intent enters through **VS Code**, **GitHub Copilot CLI**, or **Claude Code**, passes through the **Dual-Host Contract** and **Lazy Skill Router**, executes inside the **7-Phase Bounded Orchestrator Loop** with **5 Isolated Disposable Specialists** (`1 Writer`), and clears the **External Scoreboard Gate** before completing. Open the [editable static SVG](docs/assets/assured-arc-architecture.svg) for a high-resolution vector view. See [Graph and Agent Alignment](docs/GRAPH_ALIGNMENT.md) for the arXiv research comparison and why a separate graph runtime is not required.
+See [Graph and Agent Alignment](docs/GRAPH_ALIGNMENT.md) for the arXiv research comparison and why a separate graph runtime is not required.
 
 ```mermaid
 flowchart LR
@@ -114,7 +120,7 @@ flowchart LR
     CL --> HK
     CP --> SC[External scoreboard & checks]
     CP --> SR[Compact skill registry]
-    SR --> S[27 lazy-loaded portable skills]
+    SR --> S[28 lazy-loaded portable skills]
     CP --> IN[Targeted global instructions]
     V --> K[Project knowledge & MOCs]
     M --> T[Least-privilege MCP tools]
@@ -132,8 +138,6 @@ flowchart LR
 ```
 
 ### Installation to daily usage
-
-[![Animated installation and rollback map](docs/assets/assured-arc-installation-flow.gif)](docs/assets/assured-arc-installation-flow.svg)
 
 ```mermaid
 flowchart TD
@@ -153,6 +157,8 @@ flowchart TD
 ```
 
 ### Agent context and data flow
+
+[![Agent and Harness Data Flow](docs/assets/assured-arc-harness-architecture.gif)](docs/assets/assured-arc-harness-architecture.svg)
 
 ```mermaid
 flowchart LR
@@ -277,7 +283,7 @@ Prompts reference packaged agents instead of duplicating their full policies. A 
 
 ## Included skills
 
-The package includes **27 curated skills**. The installed [skill registry](config/skill-registry.json) routes each request to no more than three domain skills. Code-changing tasks always add the Development Quality gate.
+The package includes **28 curated skills**. The installed [skill registry](config/skill-registry.json) routes each request to no more than three domain skills. Code-changing tasks always add the Development Quality gate.
 
 | Category | Skills | Why it matters |
 | --- | --- | --- |
@@ -286,7 +292,7 @@ The package includes **27 curated skills**. The installed [skill registry](confi
 | Implementation | Backend and API, Frontend and Accessibility, Python Quality, Data and SQL, Configuration Management | Apply stack-aware implementation guidance only when relevant |
 | Quality | Debugging, Testing, Code Review, Performance and Reliability, Security and Privacy, Error Handling, Observability, Agent Evaluation, Ponytail | Find root causes, verify behavior, test loops, reduce defects, and remove unnecessary complexity |
 | Delivery | Git and CI, Dependency Evaluation, Documentation Quality | Improve integration, supply-chain decisions, and developer onboarding |
-| Platform | MCP Safety, Obsidian Vault, Harness Evolution | Add live tools, durable knowledge, and review gated agent improvement |
+| Platform | Web Research, MCP Safety, Obsidian Vault, Harness Evolution | Search the live web with prompt-injection quarantine, add reviewed MCP tools, maintain durable knowledge, and govern harness evolution |
 
 Skills are lazy loaded by their descriptions and the registry. This keeps context focused instead of loading every workflow into each chat. See [docs/SKILLS.md](docs/SKILLS.md) for every skill’s capability, prerequisites, practical use, and productivity benefit.
 
@@ -504,7 +510,7 @@ See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for detailed diagnostics.
 │   ├── instructions/          # Targeted AI instructions
 │   ├── prompts/               # 6 reusable VS Code slash-command prompt files
 │   ├── hooks/                 # Portable hook configuration templates (VS Code & CLI)
-│   └── skills/                # 27 lazy-loaded reusable workflows
+│   └── skills/                # 28 lazy-loaded reusable workflows
 ├── config/                    # Shared contract, harness policy, scoreboard, and manifests
 │   └── checks/                # Approved deterministic verification checks
 ├── docs/                      # Architecture, harness, MCP, skills, and troubleshooting guides

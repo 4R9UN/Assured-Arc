@@ -18,8 +18,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Strict Human-Gated Path Precedence**:
   - Updated `hooks/harness_event.py` and `hooks/harness-event.ps1` (`_human_gate_decision` / `Get-HumanGateDecision`) to evaluate human-gated path restrictions first in `PreToolUse`, denying mutations to `.github/agents`, `.github/skills`, `.github/hooks`, `.claude/agents`, `.claude/settings.json`, `mcp.json`, `hooks/`, `scripts/`, `install/`, and `config/*` before fallback policies (`ask`) unless `ASSURED_ARC_HUMAN_GATE=open` is set by a human.
   - Added opt-in gate for dynamic workflow generation (`ASSURED_ARC_DYNAMIC_WORKFLOWS=1`).
-- **Modern Crisp Animated Architecture Assets**:
-  - Redesigned `docs/assets/assured-arc-architecture.{svg,gif}`, `docs/assets/assured-arc-harness-architecture.{svg,gif}`, and `docs/assets/assured-arc-installation-flow.{svg,gif}` with a sharp, high-contrast dark slate palette, crisp typography, and 12 FPS causal animations.
+- **First-Class Web Research & Surfing Skill (`assured-arc-web-research`)**:
+  - Added `.github/skills/assured-arc-web-research/SKILL.md` and registered it in `config/skill-registry.json` (expanding the library to 28 portable skills) to guide live web search (`web`, `WebSearch`, `web_search`), primary URL fetching (`WebFetch`, `fetch_webpage`, `web_fetch`), citation provenance, and prompt-injection quarantine across `Assured Arc Research`, `Assured Arc Disposable Researcher`, and `assured-arc-researcher`.
 
 ### Changed
 

@@ -12,8 +12,9 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 WORKERS = {
     "Assured Arc Disposable Scout": ["read", "search"],
     "Assured Arc Disposable Researcher": [
@@ -67,6 +68,11 @@ def block_list(block: str, name: str) -> list[str]:
     return [line.strip()[2:].strip("'\"") for line in match.group(1).splitlines()]
 
 
+import io
+from unittest.mock import patch
+import hooks.harness_event as harness_event_module
+
+
 def run_hook(
     script: Path,
     payload: dict[str, Any],
@@ -83,18 +89,15 @@ def run_hook(
     environment["ASSURED_ARC_HARNESS_HOST"] = host
     if bound_event:
         environment["ASSURED_ARC_HARNESS_EVENT"] = bound_event
+    else:
+        environment.pop("ASSURED_ARC_HARNESS_EVENT", None)
     if extra_env:
         environment.update(extra_env)
-    completed = subprocess.run(
-        [sys.executable, str(script)],
-        input=json.dumps(payload),
-        text=True,
-        capture_output=True,
-        env=environment,
-        check=False,
-    )
-    assert completed.returncode == 0, completed.stderr
-    return json.loads(completed.stdout or "{}")
+    stdout = io.StringIO()
+    with patch.dict(os.environ, environment, clear=True), patch("sys.stdin", io.StringIO(json.dumps(payload))), patch("sys.stdout", stdout):
+        code = harness_event_module.main()
+    assert code == 0
+    return json.loads(stdout.getvalue() or "{}")
 
 
 def event(name: str, session: str, **values: Any) -> dict[str, Any]:

@@ -23,7 +23,6 @@ PLAYWRIGHT_ROOT = Path(os.environ["LOCALAPPDATA"]) / "ms-playwright"
 ASSETS = {
     "assured-arc-architecture": (1280, 768, 4.0),
     "assured-arc-harness-architecture": (1280, 760, 4.0),
-    "assured-arc-installation-flow": (1280, 720, 4.0),
 }
 
 SVG_NS = "http://www.w3.org/2000/svg"

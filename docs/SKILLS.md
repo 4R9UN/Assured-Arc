@@ -124,6 +124,10 @@ The router prefers one specific skill over several broad skills. It can merge th
 
 ## Platform skills
 
+### Assured Arc Web Research
+
+**Capability:** guides live web search, primary URL fetching, citation tracking, and prompt-injection quarantine. **Application:** looking up current documentation, release notes, upstream repositories, and security advisories when local context is insufficient. **Prerequisites:** host web search/fetch tools (`web`, `WebSearch`, `WebFetch`) or reviewed research MCP servers (`context7`, `arxiv`). **Benefit:** accurate online discovery with verifiable provenance while keeping untrusted web content isolated from the single implementation writer.
+
 ### Assured Arc MCP Safety
 
 **Capability:** reviews MCP transport, endpoints, scope, authentication, secrets, and rollback. **Application:** enabling or adopting MCP servers. **Prerequisites:** server runtime and documented auth. **Benefit:** live tools with reduced filesystem, network, and credential exposure.

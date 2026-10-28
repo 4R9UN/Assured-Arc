@@ -1,8 +1,6 @@
 # Native Disposable Agent Harness
 
-[![Animated Assured Arc agent harness architecture](assets/assured-arc-harness-architecture.gif)](assets/assured-arc-harness-architecture.svg)
-
-The animation shows the governed handoff from acceptance contract to bounded orchestration, isolated specialists, and independent evidence gates. Open the linked SVG for a motion-free, editable version.
+[![Assured Arc Agent Harness Architecture](assets/assured-arc-harness-architecture.gif)](assets/assured-arc-harness-architecture.svg)
 
 ## Purpose
 

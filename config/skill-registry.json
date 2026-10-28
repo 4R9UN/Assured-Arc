@@ -48,6 +48,7 @@
       "assured-arc-documentation-quality"
     ],
     "platform": [
+      "assured-arc-web-research",
       "assured-arc-mcp-safety",
       "assured-arc-obsidian-vault",
       "assured-arc-harness-evolution"
@@ -197,6 +198,12 @@
       "category": "delivery",
       "purpose": "Create accurate README files, tutorials, architecture docs, examples, and runbooks.",
       "triggers": ["documentation", "README", "tutorial", "runbook", "architecture document", "guide"]
+    },
+    {
+      "id": "assured-arc-web-research",
+      "category": "platform",
+      "purpose": "Search the live web, fetch primary documentation URLs, verify external facts with citations, and isolate untrusted web content.",
+      "triggers": ["web search", "browse web", "web surfing", "fetch url", "live documentation", "latest release", "online research"]
     },
     {
       "id": "assured-arc-mcp-safety",
