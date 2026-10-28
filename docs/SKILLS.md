@@ -104,6 +104,10 @@ The router prefers one specific skill over several broad skills. It can merge th
 
 **Capability:** validates loop termination, capability boundaries, tool history, safety approvals, output quality, privacy, and regression behavior with mocked or deterministic scenarios. **Application:** changes to agents, prompts, skills, hooks, or routing. **Prerequisites:** an acceptance contract and scenario catalog. **Benefit:** reproducible agent changes without relying on self assessment.
 
+### Assured Arc Codebase Reuse and Hygiene
+
+**Capability:** enforces mapping existing modules first, reusing shared helpers and conventions, preventing duplicate or bloated code, and deleting obsolete functions, unused imports, or temporary scratch files in the same change. **Application:** feature work, refactoring, bug fixes, and code cleanup. **Prerequisites:** repository source access and test or scoreboard validation. **Benefit:** keeps the codebase lean, idiomatic, and free of redundant helpers or orphaned files.
+
 ### Ponytail
 
 **Capability:** challenges unnecessary code and prefers deletion, standard libraries, platform features, and one direct implementation. **Application:** explicit requests for minimal code, YAGNI, or overengineering review. **Prerequisites:** clear success criteria. **Benefit:** less code, fewer dependencies, and lower maintenance cost. It remains lazy loaded because Development Quality already supplies ordinary simplicity guidance.

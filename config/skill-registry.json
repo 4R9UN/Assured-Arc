@@ -3,7 +3,10 @@
   "purpose": "Compact routing index for the public Assured Arc skill library.",
   "routing": {
     "defaultRouter": "assured-arc-skill-router",
-    "mandatoryForCodeChanges": ["assured-arc-development-quality"],
+    "mandatoryForCodeChanges": [
+      "assured-arc-development-quality",
+      "assured-arc-codebase-reuse-hygiene"
+    ],
     "maximumDomainSkills": 3,
     "rules": [
       "Use repository instructions and code as primary local context.",
@@ -174,6 +177,12 @@
       "category": "quality",
       "purpose": "Test agent loops with behavioral contracts, mocked tools, sanitized traces, repeated scenarios, budget checks, and regression baselines.",
       "triggers": ["agent evaluation", "agent test", "behavioral contract", "golden scenario", "agent trace", "loop regression", "mocked tools"]
+    },
+    {
+      "id": "assured-arc-codebase-reuse-hygiene",
+      "category": "quality",
+      "purpose": "Understand existing architecture first, reuse modules and helpers, prevent duplicate or bloated code, and clean up dead code or unwanted files.",
+      "triggers": ["reuse code", "existing codebase", "clean up", "dead code", "code bloat", "remove unused", "refactor", "workspace hygiene"]
     },
     {
       "id": "ponytail",

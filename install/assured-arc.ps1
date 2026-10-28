@@ -79,6 +79,10 @@ $script:State = [ordered]@{
 }
 $script:BackedUp = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
 $script:TransactionBackedUp = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+$script:CreatedSet = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+$script:ManagedSet = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+$script:RetainedBackupPaths = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+$script:BackupParentCreated = $false
 $script:TransactionBackups = [System.Collections.ArrayList]@()
 $script:TransactionCreated = [System.Collections.ArrayList]@()
 $script:TransactionExtensions = [System.Collections.ArrayList]@()
@@ -268,13 +272,18 @@ function Write-Json {
     }
 }
 
+$script:CheckedNoReparsePaths = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+
 function Assert-NoReparsePath {
     param([string]$Path)
     $current = [IO.Path]::GetFullPath($Path)
     while ($current) {
-        if (Test-Path -LiteralPath $current) {
-            $item = Get-Item -LiteralPath $current -Force
-            if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw "Refusing to modify path through symbolic link or junction: $current" }
+        if (-not $script:CheckedNoReparsePaths.Contains($current)) {
+            if (Test-Path -LiteralPath $current) {
+                $item = Get-Item -LiteralPath $current -Force
+                if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw "Refusing to modify path through symbolic link or junction: $current" }
+                [void]$script:CheckedNoReparsePaths.Add($current)
+            }
         }
         $parent = Split-Path -Parent $current
         if (-not $parent -or $parent -eq $current) { break }
@@ -357,23 +366,26 @@ function Backup-Item {
     Assert-NoReparsePath $Path
     if (-not (Test-Path -LiteralPath $Path) -or $script:TransactionBackedUp.Contains($Path)) { return }
     if ($DryRun -or $NoBackup) { return }
-    $script:TransactionBackedUp.Add($Path) | Out-Null
+    [void]$script:TransactionBackedUp.Add($Path)
     $leaf = Split-Path -Leaf $Path
     $backup = Join-Path $script:BackupRoot (([guid]::NewGuid().ToString('N')) + '-' + $leaf)
-    $backupParent = Split-Path -Parent $backup
-    if (-not (Test-Path -LiteralPath $backupParent)) { New-Item -ItemType Directory -Path $backupParent -Force | Out-Null }
+    if (-not $script:BackupParentCreated) {
+        if (-not (Test-Path -LiteralPath $script:BackupRoot)) { New-Item -ItemType Directory -Path $script:BackupRoot -Force | Out-Null }
+        $script:BackupParentCreated = $true
+    }
     Copy-Item -LiteralPath $Path -Destination $backup -Recurse -Force
     $entry = [ordered]@{ target = $Path; backup = $backup }
     $script:TransactionBackups.Add($entry) | Out-Null
-    if (-not $script:BackedUp.Contains($Path) -and $script:State.created -notcontains $Path) {
-        $script:BackedUp.Add($Path) | Out-Null
+    if (-not $script:BackedUp.Contains($Path) -and -not $script:CreatedSet.Contains($Path)) {
+        [void]$script:BackedUp.Add($Path)
+        [void]$script:RetainedBackupPaths.Add($backup)
         $script:State.backups.Add($entry) | Out-Null
     }
 }
 
 function Register-Created {
     param([string]$Path)
-    if (-not ($script:State.created -contains $Path)) {
+    if ($script:CreatedSet.Add($Path)) {
         $script:State.created.Add($Path) | Out-Null
         $script:TransactionCreated.Add($Path) | Out-Null
     }
@@ -381,8 +393,9 @@ function Register-Created {
 
 function Register-Managed {
     param([string]$Kind, [string]$Target)
-    $exists = $script:State.managed | Where-Object { $_['kind'] -eq $Kind -and $_['target'] -eq $Target }
-    if (-not $exists) { $script:State.managed.Add([ordered]@{ kind = $Kind; target = $Target }) | Out-Null }
+    if ($script:ManagedSet.Add("$Kind|$Target")) {
+        $script:State.managed.Add([ordered]@{ kind = $Kind; target = $Target }) | Out-Null
+    }
 }
 
 function Register-SettingLocation {
@@ -430,9 +443,10 @@ function Import-PreviousState {
         $entry = ConvertTo-Hashtable $item
         $script:State.backups.Add($entry) | Out-Null
         [void]$script:BackedUp.Add($entry['target'])
+        [void]$script:RetainedBackupPaths.Add($entry['backup'])
     }
     foreach ($path in @($previous.created)) {
-        if (-not ($script:State.created -contains $path)) { $script:State.created.Add([string]$path) | Out-Null }
+        if ($script:CreatedSet.Add([string]$path)) { $script:State.created.Add([string]$path) | Out-Null }
     }
     foreach ($item in @($previous.managed)) {
         $entry = ConvertTo-Hashtable $item
@@ -487,11 +501,12 @@ function Copy-ManagedDirectory {
     param([string]$Source, [string]$Destination, [string]$Kind)
     if (-not (Test-Path -LiteralPath $Source)) { throw "Package source missing: $Source" }
     Assert-NoReparsePath $Destination
-    if (Test-Path -LiteralPath $Destination) { Backup-Item $Destination } else { Register-Created $Destination }
+    $exists = Test-Path -LiteralPath $Destination
+    if ($exists) { Backup-Item $Destination } else { Register-Created $Destination }
     Invoke-Mutation "Copy $Kind to $Destination" {
         $parent = Split-Path -Parent $Destination
         if (-not (Test-Path -LiteralPath $parent)) { New-Item -ItemType Directory -Path $parent -Force | Out-Null }
-        if (Test-Path -LiteralPath $Destination) { Remove-Item -LiteralPath $Destination -Recurse -Force }
+        if ($exists) { Remove-Item -LiteralPath $Destination -Recurse -Force }
         Copy-Item -LiteralPath $Source -Destination $Destination -Recurse -Force
     }
     Register-Managed -Kind $Kind -Target $Destination
@@ -505,7 +520,7 @@ function Copy-ManagedFile {
     Invoke-Mutation "Copy $Kind to $Destination" {
         $parent = Split-Path -Parent $Destination
         if (-not (Test-Path -LiteralPath $parent)) { New-Item -ItemType Directory -Path $parent -Force | Out-Null }
-        Copy-Item -LiteralPath $Source -Destination $Destination -Force
+        [IO.File]::Copy($Source, $Destination, $true)
     }
     Register-Managed -Kind $Kind -Target $Destination
 }
@@ -749,24 +764,68 @@ function Install-ClaudeAdapters {
         Assert-NoReparsePath $target
         if (Test-Path -LiteralPath $target) { Backup-Item $target } else { Register-Created $target }
     }
-    $arguments = @(
-        (Join-Path $script:RepoRoot 'scripts\render_contract.py'),
-        '--contract', (Join-Path $script:RepoRoot 'config\agent-contract.json'),
-        '--destination', $Destination,
-        '--command', "python `"$PythonHook`""
-    )
-    foreach ($entry in @(
-        "ASSURED_ARC_HARNESS_HOST=claude",
-        "ASSURED_ARC_HARNESS_CONFIG=$HarnessTarget",
-        "ASSURED_ARC_HARNESS_TRACE_DIR=$TraceDirectory",
-        "ASSURED_ARC_HARNESS_TOOL_POLICY=$ToolPolicyTarget",
-        "ASSURED_ARC_SCOREBOARD=$ScoreboardTarget",
-        "ASSURED_ARC_SCOREBOARD_SCRIPT=$ScoreboardScript",
-        "ASSURED_ARC_SCOREBOARD_ROOT=$ScoreboardRoot"
-    )) { $arguments += @('--env', $entry) }
-    Invoke-Mutation "Render Claude adapters from the shared contract to $Destination" {
-        & $python.Source @arguments
-        if ($LASTEXITCODE -ne 0) { throw 'Claude adapter render failed.' }
+    $repoClaudeAgents = Join-Path $script:RepoRoot '.claude\agents'
+    $roles = @('orchestrator', 'scout', 'researcher', 'implementer', 'verifier', 'critic')
+    $canDirectRender = (Test-Path -LiteralPath (Join-Path $repoClaudeAgents 'assured-arc-orchestrator.md'))
+    if ($canDirectRender) {
+        Invoke-Mutation "Render Claude adapters from the shared contract to $Destination" {
+            $agentsDir = Join-Path $Destination 'agents'
+            if (-not (Test-Path -LiteralPath $agentsDir)) { New-Item -ItemType Directory -Path $agentsDir -Force | Out-Null }
+            foreach ($role in $roles) {
+                $src = Join-Path $repoClaudeAgents "assured-arc-$role.md"
+                $dst = Join-Path $agentsDir "assured-arc-$role.md"
+                [IO.File]::Copy($src, $dst, $true)
+            }
+            [IO.File]::Copy((Join-Path $script:RepoRoot 'config\agent-contract.json'), (Join-Path $Destination 'agent-contract.json'), $true)
+            $settingsPath = Join-Path $Destination 'settings.json'
+            $existing = Read-JsonC $settingsPath
+            $envMap = [ordered]@{
+                ASSURED_ARC_HARNESS_HOST = 'claude'
+                ASSURED_ARC_HARNESS_CONFIG = $HarnessTarget
+                ASSURED_ARC_HARNESS_TRACE_DIR = $TraceDirectory
+                ASSURED_ARC_HARNESS_TOOL_POLICY = $ToolPolicyTarget
+                ASSURED_ARC_SCOREBOARD = $ScoreboardTarget
+                ASSURED_ARC_SCOREBOARD_SCRIPT = $ScoreboardScript
+                ASSURED_ARC_SCOREBOARD_ROOT = $ScoreboardRoot
+            }
+            $hookObj = [ordered]@{
+                type = 'command'
+                command = "python `"$PythonHook`""
+                timeout = 180
+                env = $envMap
+            }
+            if (-not $existing.Contains('hooks') -or $existing['hooks'] -isnot [System.Collections.IDictionary]) {
+                $existing['hooks'] = [ordered]@{}
+            }
+            $existing['hooks']['PreToolUse'] = @([ordered]@{ matcher = '.*'; hooks = @($hookObj) })
+            $existing['hooks']['PostToolUse'] = @([ordered]@{ matcher = 'Edit|Write|NotebookEdit'; hooks = @($hookObj) })
+            $existing['hooks']['Stop'] = @([ordered]@{ hooks = @($hookObj) })
+            $existing['hooks']['SubagentStart'] = @([ordered]@{ hooks = @($hookObj) })
+            $existing['hooks']['SubagentStop'] = @([ordered]@{ hooks = @($hookObj) })
+            Write-Json -Path $settingsPath -Value $existing
+        }
+    }
+    else {
+        $arguments = @(
+            '-S',
+            (Join-Path $script:RepoRoot 'scripts\render_contract.py'),
+            '--contract', (Join-Path $script:RepoRoot 'config\agent-contract.json'),
+            '--destination', $Destination,
+            '--command', "python `"$PythonHook`""
+        )
+        foreach ($entry in @(
+            "ASSURED_ARC_HARNESS_HOST=claude",
+            "ASSURED_ARC_HARNESS_CONFIG=$HarnessTarget",
+            "ASSURED_ARC_HARNESS_TRACE_DIR=$TraceDirectory",
+            "ASSURED_ARC_HARNESS_TOOL_POLICY=$ToolPolicyTarget",
+            "ASSURED_ARC_SCOREBOARD=$ScoreboardTarget",
+            "ASSURED_ARC_SCOREBOARD_SCRIPT=$ScoreboardScript",
+            "ASSURED_ARC_SCOREBOARD_ROOT=$ScoreboardRoot"
+        )) { $arguments += @('--env', $entry) }
+        Invoke-Mutation "Render Claude adapters from the shared contract to $Destination" {
+            & $python.Source @arguments
+            if ($LASTEXITCODE -ne 0) { throw 'Claude adapter render failed.' }
+        }
     }
     Register-Managed -Kind 'claude-settings' -Target (Join-Path $Destination 'settings.json')
     Register-Managed -Kind 'claude-contract' -Target (Join-Path $Destination 'agent-contract.json')
@@ -988,9 +1047,8 @@ function Invoke-Rollback {
 
 function Remove-TransientBackups {
     if ($NoBackup -or $DryRun) { return }
-    $retained = @($script:State.backups | ForEach-Object { $_['backup'] })
     foreach ($backup in $script:TransactionBackups) {
-        if ($retained -notcontains $backup['backup'] -and (Test-Path -LiteralPath $backup['backup'])) {
+        if (-not $script:RetainedBackupPaths.Contains($backup['backup']) -and (Test-Path -LiteralPath $backup['backup'])) {
             Remove-Item -LiteralPath $backup['backup'] -Recurse -Force
         }
     }
@@ -1042,8 +1100,9 @@ try {
     $script:State.copilotCli.root = $copilotCliRoot
     $script:State.vaultPath = $VaultPath
     Assert-InstallPlanPaths -VsCodeUser $vscodeUser -CopilotProfile $copilotRoot -CopilotCliProfile $copilotCliRoot -Vault $VaultPath -Profile $ProfileRoot
+    $hadPriorCli = $InstallCopilotCli
     Import-PreviousState
-    if ($InstallCopilotCli) { Assert-InstallPlanPaths -VsCodeUser $vscodeUser -CopilotProfile $copilotRoot -CopilotCliProfile $copilotCliRoot -Vault $VaultPath -Profile $ProfileRoot }
+    if ($InstallCopilotCli -and -not $hadPriorCli) { Assert-InstallPlanPaths -VsCodeUser $vscodeUser -CopilotProfile $copilotRoot -CopilotCliProfile $copilotCliRoot -Vault $VaultPath -Profile $ProfileRoot }
 
     Write-Step 'Validate prerequisites'
     if ((Get-Platform) -ne 'windows') { throw 'The PowerShell installer supports Windows. Use install/assured-arc.sh on macOS or Linux.' }
@@ -1081,8 +1140,25 @@ try {
     Update-Settings -Target $settingsTarget -Template (Join-Path $script:RepoRoot 'config\user-settings.json') -CustomizationRoot $copilotRoot -AgentRoot $agentRoot
 
     Write-Step 'Install managed agents, skills, and instructions'
-    Get-ChildItem (Join-Path $script:RepoRoot '.github\skills') -Directory | ForEach-Object {
-        Copy-ManagedDirectory -Source $_.FullName -Destination (Join-Path $copilotRoot ('skills' + [IO.Path]::DirectorySeparatorChar + $_.Name)) -Kind 'skill'
+    $skillsDestinationRoot = Join-Path $copilotRoot 'skills'
+    $skillSourceDirs = @(Get-ChildItem (Join-Path $script:RepoRoot '.github\skills') -Directory)
+    if (-not $DryRun) {
+        Assert-NoReparsePath $skillsDestinationRoot
+        if (-not (Test-Path -LiteralPath $skillsDestinationRoot)) {
+            New-Item -ItemType Directory -Path $skillsDestinationRoot -Force | Out-Null
+        }
+        foreach ($dir in $skillSourceDirs) {
+            $dest = Join-Path $skillsDestinationRoot $dir.Name
+            Assert-NoReparsePath $dest
+            if ((Test-Path -LiteralPath $dest) -and -not $script:CreatedSet.Contains($dest)) { Backup-Item $dest } else { Register-Created $dest }
+            Register-Managed -Kind 'skill' -Target $dest
+        }
+        Copy-Item -Path (Join-Path $script:RepoRoot '.github\skills\*') -Destination $skillsDestinationRoot -Recurse -Force
+    }
+    else {
+        foreach ($dir in $skillSourceDirs) {
+            Copy-ManagedDirectory -Source $dir.FullName -Destination (Join-Path $skillsDestinationRoot $dir.Name) -Kind 'skill'
+        }
     }
     $registryTarget = Join-Path $copilotRoot 'skill-registry.json'
     Copy-ManagedFile -Source (Join-Path $script:RepoRoot 'config\skill-registry.json') -Destination $registryTarget -Kind 'skill-registry'

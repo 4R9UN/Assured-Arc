@@ -240,6 +240,45 @@ def validate_static_contracts() -> None:
             assert hook["env"]["ASSURED_ARC_HARNESS_HOST"] == "copilot-cli"
             assert hook["env"]["ASSURED_ARC_HARNESS_EVENT"] == "__HARNESS_EVENT__"
             assert "bash" in hook and "powershell" in hook
+
+    for svg_name, expected_label in (
+        ("assured-arc-architecture.svg", "29 SKILLS"),
+        ("assured-arc-harness-architecture.svg", "6-STAGE PIPELINE"),
+    ):
+        svg_path = ROOT / "docs/assets" / svg_name
+        assert svg_path.is_file(), svg_name
+        svg_text = svg_path.read_text(encoding="utf-8")
+        assert 'viewBox="0 0 1200 720"' in svg_text, svg_name
+        assert expected_label in svg_text, svg_name
+        gif_path = svg_path.with_suffix(".gif")
+        assert gif_path.is_file() and gif_path.stat().st_size > 1024, gif_path.name
+    assert not (ROOT / "docs/assets/assured-arc-installation-flow.svg").exists()
+    assert not (ROOT / "docs/assets/assured-arc-installation-flow.gif").exists()
+
+    import config.checks.approved_check as approved_check_module
+    import scripts.route_skills as route_skills_module
+
+    assert approved_check_module.scan_workspace(ROOT) == []
+    with tempfile.TemporaryDirectory(prefix="assured-arc-hygiene-test-") as hygiene_tmp:
+        tmp_dir = Path(hygiene_tmp)
+        (tmp_dir / "dup.py").write_text("def foo():\n    return 1\n\ndef foo():\n    breakpoint()\n", encoding="utf-8")
+        issues = approved_check_module.scan_workspace(tmp_dir)
+        assert any("duplicate top-level definition 'foo'" in item for item in issues), issues
+        assert any("leftover debug breakpoint()" in item for item in issues), issues
+
+    routed_code = route_skills_module.route_task("Implement Python CLI and refactor existing codebase")
+    assert routed_code["codeChange"] is True
+    assert routed_code["mandatorySkills"] == [
+        "assured-arc-development-quality",
+        "assured-arc-codebase-reuse-hygiene",
+    ]
+    assert len(routed_code["domainSkills"]) <= 3
+    assert "assured-arc-python-quality" in routed_code["domainSkills"]
+    routed_read = route_skills_module.route_task("Search the live web and fetch documentation URLs", code_change=False)
+    assert routed_read["codeChange"] is False
+    assert routed_read["mandatorySkills"] == []
+    assert "assured-arc-web-research" in routed_read["domainSkills"]
+
 def validate_python_hook() -> None:
     script = ROOT / "hooks/harness_event.py"
     base_config = load_json("config/agent-harness.json")

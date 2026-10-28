@@ -21,12 +21,12 @@ Document which agents and skills help a project.
 
 ## Skill categories
 
-- Core routing, development quality, repository onboarding, task planning, agent orchestration, and context efficiency
+- Core routing, development quality, codebase reuse and hygiene, repository onboarding, task planning, agent orchestration, and context efficiency
 - Architecture design
 - Backend, frontend, Python, data, and configuration implementation
 - Debugging, testing, review, performance, security, privacy, error handling, observability, agent evaluation, and optional Ponytail simplicity
 - Git, CI, dependencies, and documentation
-- Obsidian vault, MCP safety, and review gated harness evolution
+- Web research, Obsidian vault, MCP safety, and review gated harness evolution
 
 ## Reusable prompts
 

@@ -34,13 +34,18 @@ function Invoke-Mutation {
     & $Action
 }
 
+$script:CheckedNoReparsePaths = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+
 function Assert-NoReparsePath {
     param([string]$Path)
     $current = [IO.Path]::GetFullPath($Path)
     while ($current) {
-        if (Test-Path -LiteralPath $current) {
-            $item = Get-Item -LiteralPath $current -Force
-            if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw "Refusing to modify path through symbolic link or junction: $current" }
+        if (-not $script:CheckedNoReparsePaths.Contains($current)) {
+            if (Test-Path -LiteralPath $current) {
+                $item = Get-Item -LiteralPath $current -Force
+                if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw "Refusing to modify path through symbolic link or junction: $current" }
+                [void]$script:CheckedNoReparsePaths.Add($current)
+            }
         }
         $parent = Split-Path -Parent $current
         if (-not $parent -or $parent -eq $current) { break }

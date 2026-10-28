@@ -14,11 +14,12 @@ Turns a request into a small, testable change. It protects installer compatibili
 
 ## Workflow
 
-1. Inspect the installer, config template, state schema, and relevant validation first.
-2. State material assumptions only when repository evidence cannot resolve them.
-3. Implement the smallest behavior that meets the request.
-4. Preserve command line compatibility and non destructive defaults.
-5. Run focused syntax, JSON, dry run, or unit validation.
+1. Inspect the installer, config template, state schema, existing helpers, and relevant validation first.
+2. Reuse and extend existing functions, data structures, and modules rather than introducing parallel helpers or new files.
+3. State material assumptions only when repository evidence cannot resolve them.
+4. Implement the smallest behavior that meets the request without speculative wrappers, dead branches, or commented-out code blocks.
+5. Clean up obsolete functions, unused imports, and any temporary or superseded files in the same change.
+6. Run focused syntax, JSON, dry run, or unit validation.
 
 ## Practical application
 

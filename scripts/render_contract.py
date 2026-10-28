@@ -30,8 +30,11 @@ ROLE_COPY = {
         ],
     ),
     "scout": (
-        "You map the files and constraints for one bounded task.",
-        ["Read and search only. Do not edit, run commands, or spawn agents."],
+        "You map the files, reusable modules, and constraints for one bounded task.",
+        [
+            "Read and search only. Identify existing functions and patterns to reuse before any code is written.",
+            "Do not edit, run commands, or spawn agents.",
+        ],
     ),
     "researcher": (
         "You gather external and live web evidence for one bounded question.",
@@ -43,7 +46,8 @@ ROLE_COPY = {
     "implementer": (
         "You are the only writer for the assigned files.",
         [
-            "Edit only the brief's write scope. Read before editing.",
+            "Edit only the brief's write scope. Read and reuse existing modules and helpers before editing.",
+            "Avoid code bloat, duplicate logic, or commented-out blocks, and clean up dead code or unused imports.",
             "Do not run commands, browse, call MCP, or spawn agents.",
             "Return changed files and stop. The Stop hook runs the scoreboard.",
         ],
@@ -57,7 +61,7 @@ ROLE_COPY = {
         ],
     ),
     "critic": (
-        "You look for blocking gaps in the bounded change.",
+        "You look for blocking gaps, code bloat, duplicate logic, or dead files in the bounded change.",
         ["Read and search only. Do not edit, self-score, or expand the harness."],
     ),
 }

@@ -3,6 +3,8 @@ param()
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
+$env:PYTHONDONTWRITEBYTECODE = '1'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $failures = [System.Collections.ArrayList]@()
 $checks = 0
@@ -27,7 +29,8 @@ $required = @(
     'README.md', 'LICENSE', 'CONTRIBUTING.md', 'SECURITY.md', 'docs/HARNESS.md', 'install.ps1',
     'install/assured-arc.ps1', 'install/uninstall.ps1', 'install/assured-arc.sh', 'install/uninstall.sh',
     'install/doctor.ps1', 'install/doctor.sh', 'install/migrate-legacy.ps1', 'install/migrate-legacy.sh',
-    'hooks/harness-event.ps1', 'hooks/harness_event.py', 'scripts/scoreboard.py', 'scripts/render_contract.py', 'tests/harness_contracts.py', 'tests/harness_evaluator.py',
+    'hooks/harness-event.ps1', 'hooks/harness_event.py', 'scripts/scoreboard.py', 'scripts/render_contract.py', 'scripts/route_skills.py', 'tests/harness_contracts.py', 'tests/harness_evaluator.py',
+    'docs/assets/assured-arc-architecture.svg', 'docs/assets/assured-arc-architecture.gif', 'docs/assets/assured-arc-harness-architecture.svg', 'docs/assets/assured-arc-harness-architecture.gif',
     'config/extensions.json', 'config/user-settings.json', 'config/assured-arc.example.json', 'config/instructions.json', 'config/skill-registry.json', 'config/mcp-servers.json',
     'config/agent-harness.json', 'config/agent-contract.json', 'config/tool-policy.json', 'config/scoreboard.json', 'config/checks/approved_check.py', 'config/harness-evaluation-fixtures.json', 'config/install-profiles.json',
     'mcp/mcp.json.example', 'mcp/copilot-cli.mcp.json.example',
@@ -158,25 +161,31 @@ try {
     $env:ASSURED_ARC_HARNESS_CONFIG = Join-Path $repoRoot 'config/agent-harness.json'
     $env:ASSURED_ARC_HARNESS_TRACE_DIR = Join-Path $hookSandbox 'traces'
     $hookScript = Join-Path $repoRoot 'hooks/harness-event.ps1'
+    function Invoke-HookEvent([hashtable]$Payload) {
+        $json = $Payload | ConvertTo-Json -Compress -Depth 10
+        $output = & $hookScript -InputJson $json | Out-String
+        if ([string]::IsNullOrWhiteSpace($output)) { return $null }
+        return $output | ConvertFrom-Json
+    }
     $baseEvent = [ordered]@{ timestamp = '2026-01-01T00:00:00Z'; cwd = $repoRoot; session_id = 'powershell-writer'; hook_event_name = 'SubagentStart'; agent_id = 'writer-one'; agent_type = 'Assured Arc Disposable Implementer' }
-    $firstWriter = (($baseEvent | ConvertTo-Json -Compress -Depth 10) | & pwsh -NoProfile -File $hookScript | Out-String) | ConvertFrom-Json
+    $firstWriter = Invoke-HookEvent $baseEvent
     $baseEvent.agent_id = 'writer-two'
-    $secondWriter = (($baseEvent | ConvertTo-Json -Compress -Depth 10) | & pwsh -NoProfile -File $hookScript | Out-String) | ConvertFrom-Json
+    $secondWriter = Invoke-HookEvent $baseEvent
     Test-Condition -Condition ($firstWriter.hookSpecificOutput.hookEventName -eq 'SubagentStart') -Message 'PowerShell hook permits the first implementation writer'
     Test-Condition -Condition ($secondWriter.continue -eq $false -and $secondWriter.stopReason -match 'Single-writer') -Message 'PowerShell hook blocks a second implementation writer'
     $wrongStop = [ordered]@{ timestamp = '2026-01-01T00:00:00Z'; cwd = $repoRoot; session_id = 'powershell-writer'; hook_event_name = 'SubagentStop'; agent_id = 'wrong'; agent_type = 'Assured Arc Disposable Implementer' }
-    [void](($wrongStop | ConvertTo-Json -Compress -Depth 10) | & pwsh -NoProfile -File $hookScript | Out-String)
+    [void](Invoke-HookEvent $wrongStop)
     $baseEvent.agent_id = 'writer-three'
-    $stillBlocked = (($baseEvent | ConvertTo-Json -Compress -Depth 10) | & pwsh -NoProfile -File $hookScript | Out-String) | ConvertFrom-Json
+    $stillBlocked = Invoke-HookEvent $baseEvent
     Test-Condition -Condition ($stillBlocked.continue -eq $false -and $stillBlocked.stopReason -match 'Single-writer') -Message 'PowerShell unmatched stop does not release the active writer'
     $approvalEvent = [ordered]@{ timestamp = '2026-01-01T00:00:00Z'; cwd = $repoRoot; session_id = 'powershell-approval'; hook_event_name = 'PreToolUse'; tool_name = 'run_in_terminal'; tool_input = [ordered]@{ command = 'npm install example' } }
-    $approval = (($approvalEvent | ConvertTo-Json -Compress -Depth 10) | & pwsh -NoProfile -File $hookScript | Out-String) | ConvertFrom-Json
+    $approval = Invoke-HookEvent $approvalEvent
     Test-Condition -Condition ($approval.hookSpecificOutput.permissionDecision -eq 'ask') -Message 'PowerShell hook requires approval for dependency installation'
     $secret = 'SHOULD-NOT-APPEAR-IN-TRACE'
     $promptEvent = [ordered]@{ timestamp = '2026-01-01T00:00:00Z'; cwd = $repoRoot; session_id = 'powershell-redaction'; hook_event_name = 'UserPromptSubmit'; prompt = $secret }
-    [void](($promptEvent | ConvertTo-Json -Compress -Depth 10) | & pwsh -NoProfile -File $hookScript | Out-String)
+    [void](Invoke-HookEvent $promptEvent)
     $stopEvent = [ordered]@{ timestamp = '2026-01-01T00:00:00Z'; cwd = $repoRoot; session_id = 'powershell-redaction'; hook_event_name = 'Stop'; output = $secret }
-    [void](($stopEvent | ConvertTo-Json -Compress -Depth 10) | & pwsh -NoProfile -File $hookScript | Out-String)
+    [void](Invoke-HookEvent $stopEvent)
     $traceText = @(Get-ChildItem -LiteralPath $env:ASSURED_ARC_HARNESS_TRACE_DIR -Recurse -File | ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw }) -join "`n"
     Test-Condition -Condition ($traceText -notmatch [regex]::Escape($secret)) -Message 'PowerShell hook traces exclude prompt text'
     $receipt = Get-ChildItem -LiteralPath (Join-Path $env:ASSURED_ARC_HARNESS_TRACE_DIR 'receipts') -Filter '*.json' | Select-Object -First 1 | Get-Content -Raw | ConvertFrom-Json
@@ -222,17 +231,26 @@ try {
 catch { Test-Condition -Condition $false -Message "PowerShell lifecycle helpers pass: $($_.Exception.Message)" }
 finally { if (Test-Path -LiteralPath $helperSandbox) { Remove-Item -LiteralPath $helperSandbox -Recurse -Force } }
 
-$sandbox = Join-Path ([IO.Path]::GetTempPath()) ('assured-arc-install-' + [guid]::NewGuid().ToString('N'))
-$profile = Join-Path $sandbox 'profile'
-$vscodeUser = Join-Path $sandbox 'vscode-user'
-$copilot = Join-Path $sandbox 'copilot'
-$vault = Join-Path $profile 'vault'
+$homeProfile = Join-Path $HOME ('.assured-arc-location-test-' + [guid]::NewGuid().ToString('N'))
+$vscodeUser = Join-Path $homeProfile 'vscode-user'
+$copilot = Join-Path $homeProfile 'copilot'
+$vault = Join-Path $homeProfile 'vault'
+$protectedVictim = Join-Path $homeProfile 'victim'
 try {
-    New-Item -ItemType Directory -Path (Join-Path $vscodeUser 'prompts') -Force | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path $vscodeUser 'prompts'),$protectedVictim -Force | Out-Null
     Set-Content -LiteralPath (Join-Path $vscodeUser 'prompts/untouched.prompt.md') -Value 'existing user prompt' -NoNewline
-    & (Join-Path $repoRoot 'install.ps1') -SkipMcp -SkipExtensions -ProfileRoot $profile -VaultPath $vault -VsCodeUserDirectory $vscodeUser -CopilotRoot $copilot | Out-Host
-    Test-Condition -Condition (Test-Path -LiteralPath (Join-Path $profile 'state.json')) -Message 'PowerShell isolated install writes state'
-    & (Join-Path $repoRoot 'install/doctor.ps1') -ProfileRoot $profile | Out-Host
+    Set-Content -LiteralPath (Join-Path $protectedVictim 'keep.txt') -Value 'keep' -NoNewline
+    $existingSkillsFullPath = [IO.Path]::GetFullPath((Join-Path $copilot 'skills'))
+    $homePrefix = [IO.Path]::GetFullPath($HOME).TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
+    $existingSkillsPath = '~/' + $existingSkillsFullPath.Substring($homePrefix.Length).Replace('\', '/')
+    $existingSkillsLocations = [ordered]@{}
+    $existingSkillsLocations[$existingSkillsPath] = $true
+    $existingSettings = [ordered]@{ 'chat.agentSkillsLocations' = $existingSkillsLocations; preserve = 'user-value' }
+    $existingSettings | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $vscodeUser 'settings.json') -Encoding utf8
+
+    & (Join-Path $repoRoot 'install.ps1') -SkipMcp -SkipExtensions -ProfileRoot $homeProfile -VaultPath $vault -VsCodeUserDirectory $vscodeUser -CopilotRoot $copilot | Out-Null
+    Test-Condition -Condition (Test-Path -LiteralPath (Join-Path $homeProfile 'state.json')) -Message 'PowerShell isolated install writes state'
+    & (Join-Path $repoRoot 'install/doctor.ps1') -ProfileRoot $homeProfile | Out-Null
     Test-Condition -Condition ($LASTEXITCODE -eq 0) -Message 'PowerShell Doctor accepts a healthy installed profile'
     Test-Condition -Condition (Test-Path -LiteralPath (Join-Path $copilot 'skills/assured-arc-development-quality/SKILL.md')) -Message 'PowerShell isolated install copies skills'
     Test-Condition -Condition (Test-Path -LiteralPath (Join-Path $copilot 'skill-registry.json')) -Message 'PowerShell isolated install copies skill registry'
@@ -250,19 +268,46 @@ try {
     Test-Condition -Condition (@($installedSettings.'chat.promptFilesLocations'.PSObject.Properties).Count -eq 1) -Message 'PowerShell settings discover the managed prompt location'
     Test-Condition -Condition ((Get-Content -LiteralPath (Join-Path $vscodeUser 'prompts/untouched.prompt.md') -Raw) -eq 'existing user prompt') -Message 'PowerShell install preserves the existing user prompt directory'
     Test-Condition -Condition (Test-Path -LiteralPath (Join-Path $vault 'Home.md')) -Message 'PowerShell isolated install creates vault'
+    $locationKeys = @(
+        $installedSettings.'chat.agentFilesLocations'.PSObject.Properties.Name
+        $installedSettings.'chat.promptFilesLocations'.PSObject.Properties.Name
+        $installedSettings.'chat.agentSkillsLocations'.PSObject.Properties.Name
+        $installedSettings.'chat.instructionsFilesLocations'.PSObject.Properties.Name | Where-Object { $_ -like '~/.assured-arc-location-test-*' }
+        $installedSettings.'chat.hookFilesLocations'.PSObject.Properties.Name
+    )
+    Test-Condition -Condition ($locationKeys.Count -eq 5 -and @($locationKeys | Where-Object { $_ -notlike '~/*' }).Count -eq 0) -Message 'PowerShell default global customization locations use supported tilde paths'
 
-    & (Join-Path $repoRoot 'install.ps1') -SkipMcp -SkipExtensions -ProfileRoot $profile -VaultPath $vault -VsCodeUserDirectory $vscodeUser -CopilotRoot $copilot | Out-Host
+    & (Join-Path $repoRoot 'install.ps1') -SkipMcp -SkipExtensions -ProfileRoot $homeProfile -VaultPath $vault -VsCodeUserDirectory $vscodeUser -CopilotRoot $copilot | Out-Null
     $skillCount = (Get-ChildItem -LiteralPath (Join-Path $copilot 'skills') -Directory).Count
     Test-Condition -Condition ($skillCount -eq $skillDirectories.Count) -Message 'PowerShell repeated install remains idempotent'
 
-    $alternateCopilot = Join-Path $sandbox 'alternate-copilot'
+    $alternateCopilot = Join-Path $homeProfile 'alternate-copilot'
     $migrationRejected = $false
-    try { & (Join-Path $repoRoot 'install/assured-arc.ps1') -SkipMcp -SkipExtensions -SkipVault -ProfileRoot $profile -VsCodeUserDirectory $vscodeUser -CopilotRoot $alternateCopilot | Out-Null }
+    try { & (Join-Path $repoRoot 'install/assured-arc.ps1') -SkipMcp -SkipExtensions -SkipVault -ProfileRoot $homeProfile -VsCodeUserDirectory $vscodeUser -CopilotRoot $alternateCopilot | Out-Null }
     catch { $migrationRejected = $_.Exception.Message -match 'cannot migrate copilotRoot' }
     Test-Condition -Condition $migrationRejected -Message 'PowerShell repeat install rejects Copilot root migration'
 
-    & (Join-Path $repoRoot 'install/uninstall.ps1') -ProfileRoot $profile -CopilotRoot $copilot -VsCodeUserDirectory $vscodeUser -RemoveVault | Out-Host
-    Test-Condition -Condition (-not (Test-Path -LiteralPath (Join-Path $profile 'state.json'))) -Message 'PowerShell uninstall removes state'
+    $originalStateJson = Get-Content -LiteralPath (Join-Path $homeProfile 'state.json') -Raw
+    $ownershipState = $originalStateJson | ConvertFrom-Json
+    $ownedSkillsEntry = @($ownershipState.settings.locationEntries | Where-Object { $_.setting -eq 'chat.agentSkillsLocations' -and $_.path -eq $existingSkillsPath })
+    Test-Condition -Condition ($ownedSkillsEntry.Count -eq 1 -and $ownedSkillsEntry[0].added -eq $false) -Message 'PowerShell state distinguishes a preexisting customization location'
+
+    $tamperedState = $originalStateJson | ConvertFrom-Json
+    $tamperedState.managed += [pscustomobject]@{ kind = 'skill'; target = $protectedVictim }
+    $tamperedState | ConvertTo-Json -Depth 30 | Set-Content -LiteralPath (Join-Path $homeProfile 'state.json') -Encoding utf8
+    $repeatRejected = $false
+    try { & (Join-Path $repoRoot 'install/assured-arc.ps1') -SkipMcp -SkipExtensions -SkipVault -ProfileRoot $homeProfile -VsCodeUserDirectory $vscodeUser -CopilotRoot $copilot | Out-Null }
+    catch { $repeatRejected = $_.Exception.Message -match 'state integrity validation failed' }
+    Test-Condition -Condition $repeatRejected -Message 'PowerShell repeat install rejects tampered prior state'
+    $tamperRejected = $false
+    try { & (Join-Path $repoRoot 'install/uninstall.ps1') -ProfileRoot $homeProfile -CopilotRoot $copilot -VsCodeUserDirectory $vscodeUser | Out-Null }
+    catch { $tamperRejected = $_.Exception.Message -match 'state integrity validation failed' }
+    Test-Condition -Condition $tamperRejected -Message 'PowerShell uninstall rejects tampered state before path mutation'
+    Test-Condition -Condition (Test-Path -LiteralPath (Join-Path $protectedVictim 'keep.txt')) -Message 'PowerShell rejected tampered state preserves unrelated files'
+    Set-Content -LiteralPath (Join-Path $homeProfile 'state.json') -Value $originalStateJson -NoNewline -Encoding utf8
+
+    & (Join-Path $repoRoot 'install/uninstall.ps1') -ProfileRoot $homeProfile -CopilotRoot $copilot -VsCodeUserDirectory $vscodeUser -RemoveVault | Out-Null
+    Test-Condition -Condition (-not (Test-Path -LiteralPath (Join-Path $homeProfile 'state.json'))) -Message 'PowerShell uninstall removes state'
     Test-Condition -Condition (-not (Test-Path -LiteralPath (Join-Path $copilot 'skills/assured-arc-development-quality'))) -Message 'PowerShell uninstall removes managed skills'
     Test-Condition -Condition (-not (Test-Path -LiteralPath (Join-Path $copilot 'skill-registry.json'))) -Message 'PowerShell uninstall removes managed skill registry'
     Test-Condition -Condition (-not (Test-Path -LiteralPath (Join-Path $copilot 'prompts/plan-implement-verify.prompt.md'))) -Message 'PowerShell uninstall removes managed reusable prompts'
@@ -270,131 +315,14 @@ try {
     Test-Condition -Condition (-not (Test-Path -LiteralPath (Join-Path $copilot 'agent-harness.json'))) -Message 'PowerShell uninstall removes the managed harness policy'
     $uninstalledSettings = Get-Content -LiteralPath (Join-Path $vscodeUser 'settings.json') -Raw | ConvertFrom-Json
     Test-Condition -Condition (@($uninstalledSettings.'chat.promptFilesLocations'.PSObject.Properties).Count -eq 0) -Message 'PowerShell uninstall removes the package prompt location from settings'
+    Test-Condition -Condition ($uninstalledSettings.'chat.agentSkillsLocations'.PSObject.Properties.Name -contains $existingSkillsPath) -Message 'PowerShell uninstall preserves a preexisting package-named customization location'
+    Test-Condition -Condition ($uninstalledSettings.preserve -eq 'user-value') -Message 'PowerShell uninstall preserves unrelated settings values'
     Test-Condition -Condition ((Get-Content -LiteralPath (Join-Path $vscodeUser 'prompts/untouched.prompt.md') -Raw) -eq 'existing user prompt') -Message 'PowerShell uninstall preserves unrelated user prompts'
     Test-Condition -Condition (-not (Test-Path -LiteralPath $vault)) -Message 'PowerShell uninstall removes opted in vault'
 }
 catch {
     Test-Condition -Condition $false -Message "PowerShell isolated install and uninstall succeeds: $($_.Exception.Message)"
 }
-finally {
-    if (Test-Path -LiteralPath $sandbox) { Remove-Item -LiteralPath $sandbox -Recurse -Force }
-}
-
-$cliSandbox = Join-Path ([IO.Path]::GetTempPath()) ('assured-arc-cli-' + [guid]::NewGuid().ToString('N'))
-try {
-    $cliProfile = Join-Path $cliSandbox 'profile'
-    $cliVsCode = Join-Path $cliSandbox 'vscode-user'
-    $cliManaged = Join-Path $cliSandbox 'managed'
-    $cliRoot = Join-Path $cliSandbox 'cli-home'
-    New-Item -ItemType Directory -Path $cliRoot -Force | Out-Null
-    $fakeCopilot = Join-Path $cliSandbox 'copilot.cmd'
-    Set-Content -LiteralPath $fakeCopilot -Encoding Ascii -Value "@echo off`r`nexit /b 0"
-    $existingCliSettings = [ordered]@{ keep = 'user-value'; skillDirectories = @((Join-Path $cliSandbox 'existing-skills')) }
-    $existingCliSettings | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $cliRoot 'settings.json') -Encoding utf8
-    $existingCliMcp = [ordered]@{ mcpServers = [ordered]@{ unrelated = [ordered]@{ type = 'http'; url = 'https://example.invalid/mcp'; tools = @('*') } } }
-    $existingCliMcp | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $cliRoot 'mcp-config.json') -Encoding utf8
-
-    & (Join-Path $repoRoot 'install.ps1') -InstallCopilotCli -SkipMcp -SkipExtensions -SkipVault -ProfileRoot $cliProfile -VsCodeUserDirectory $cliVsCode -CopilotRoot $cliManaged -CopilotCliRoot $cliRoot -CopilotCliCommand $fakeCopilot | Out-Host
-    $cliState = Get-Content -LiteralPath (Join-Path $cliProfile 'state.json') -Raw | ConvertFrom-Json
-    Test-Condition -Condition ($cliState.schema -eq 4 -and $cliState.copilotCli.enabled) -Message 'PowerShell state records Copilot CLI ownership with schema 4'
-    Test-Condition -Condition (Test-Path -LiteralPath (Join-Path $cliRoot 'agents/assured-arc-orchestrator.agent.md')) -Message 'PowerShell installs agents into the Copilot CLI user profile'
-    Test-Condition -Condition (Test-Path -LiteralPath (Join-Path $cliRoot 'instructions/assured-arc-agent-harness.instructions.md')) -Message 'PowerShell installs modular Copilot CLI instructions'
-    Test-Condition -Condition (Test-Path -LiteralPath (Join-Path $cliRoot 'hooks/assured-arc.json')) -Message 'PowerShell installs Copilot CLI user hooks'
-    $cliHooks = Get-Content -LiteralPath (Join-Path $cliRoot 'hooks/assured-arc.json') -Raw | ConvertFrom-Json
-    Test-Condition -Condition ($cliHooks.version -eq 1 -and $cliHooks.hooks.preToolUse[0].env.ASSURED_ARC_HARNESS_HOST -eq 'copilot-cli') -Message 'PowerShell renders the Copilot CLI hook contract'
-    $cliSettings = Get-Content -LiteralPath (Join-Path $cliRoot 'settings.json') -Raw | ConvertFrom-Json
-    Test-Condition -Condition ($cliSettings.keep -eq 'user-value' -and @($cliSettings.skillDirectories).Count -eq 2) -Message 'PowerShell preserves CLI settings and registers managed skills once'
-    $cliVsCodeSettings = Get-Content -LiteralPath (Join-Path $cliVsCode 'settings.json') -Raw | ConvertFrom-Json
-    Test-Condition -Condition (@($cliVsCodeSettings.'chat.agentFilesLocations'.PSObject.Properties.Name)[0] -like '*/cli-home/agents') -Message 'VS Code and Copilot CLI share the CLI-native agent directory'
-
-    & (Join-Path $repoRoot 'install.ps1') -InstallCopilotCli -SkipMcp -SkipExtensions -SkipVault -ProfileRoot $cliProfile -VsCodeUserDirectory $cliVsCode -CopilotRoot $cliManaged -CopilotCliRoot $cliRoot -CopilotCliCommand $fakeCopilot | Out-Null
-    $cliSettings = Get-Content -LiteralPath (Join-Path $cliRoot 'settings.json') -Raw | ConvertFrom-Json
-    Test-Condition -Condition (@($cliSettings.skillDirectories).Count -eq 2) -Message 'PowerShell repeated CLI install remains idempotent'
-
-    & (Join-Path $repoRoot 'install/uninstall.ps1') -ProfileRoot $cliProfile -CopilotRoot $cliManaged -CopilotCliRoot $cliRoot -VsCodeUserDirectory $cliVsCode | Out-Host
-    $remainingCliSettings = Get-Content -LiteralPath (Join-Path $cliRoot 'settings.json') -Raw | ConvertFrom-Json
-    $remainingCliMcp = Get-Content -LiteralPath (Join-Path $cliRoot 'mcp-config.json') -Raw | ConvertFrom-Json
-    Test-Condition -Condition ($remainingCliSettings.keep -eq 'user-value' -and @($remainingCliSettings.skillDirectories).Count -eq 1) -Message 'PowerShell CLI uninstall preserves unrelated settings and skill directories'
-    $remainingCliMcpIds = @($remainingCliMcp.mcpServers.PSObject.Properties.Name)
-    Test-Condition -Condition ($remainingCliMcpIds.Count -eq 1 -and $remainingCliMcpIds[0] -eq 'unrelated') -Message 'PowerShell CLI uninstall preserves unrelated MCP servers'
-    Test-Condition -Condition (-not (Test-Path -LiteralPath (Join-Path $cliRoot 'agents/assured-arc-orchestrator.agent.md'))) -Message 'PowerShell CLI uninstall removes package agents'
-    Test-Condition -Condition (-not (Test-Path -LiteralPath (Join-Path $cliRoot 'hooks/assured-arc.json'))) -Message 'PowerShell CLI uninstall removes package hooks'
-}
-catch { Test-Condition -Condition $false -Message "PowerShell Copilot CLI lifecycle succeeds: $($_.Exception.Message)" }
-finally {
-    if (Test-Path -LiteralPath $cliSandbox) { Remove-Item -LiteralPath $cliSandbox -Recurse -Force }
-}
-
-$ownershipSandbox = Join-Path ([IO.Path]::GetTempPath()) ('assured-arc-settings-owner-' + [guid]::NewGuid().ToString('N'))
-try {
-    $ownershipProfile = Join-Path $ownershipSandbox 'profile'
-    $ownershipVsCode = Join-Path $ownershipSandbox 'vscode-user'
-    $ownershipCopilot = Join-Path $ownershipSandbox 'copilot'
-    New-Item -ItemType Directory -Path $ownershipVsCode -Force | Out-Null
-    $existingPromptFullPath = [IO.Path]::GetFullPath((Join-Path $ownershipCopilot 'prompts'))
-    $homePrefix = [IO.Path]::GetFullPath($HOME).TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
-    $existingPromptPath = '~/' + $existingPromptFullPath.Substring($homePrefix.Length).Replace('\', '/')
-    $existingPromptLocations = [ordered]@{}
-    $existingPromptLocations[$existingPromptPath] = $true
-    $existingSettings = [ordered]@{ 'chat.promptFilesLocations' = $existingPromptLocations; preserve = 'user-value' }
-    $existingSettings | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $ownershipVsCode 'settings.json') -Encoding utf8
-    & (Join-Path $repoRoot 'install/assured-arc.ps1') -SkipMcp -SkipExtensions -SkipVault -ProfileRoot $ownershipProfile -VsCodeUserDirectory $ownershipVsCode -CopilotRoot $ownershipCopilot | Out-Null
-    $ownershipState = Get-Content -LiteralPath (Join-Path $ownershipProfile 'state.json') -Raw | ConvertFrom-Json
-    $ownedPromptEntry = @($ownershipState.settings.locationEntries | Where-Object { $_.setting -eq 'chat.promptFilesLocations' -and $_.path -eq $existingPromptPath })
-    Test-Condition -Condition ($ownedPromptEntry.Count -eq 1 -and $ownedPromptEntry[0].added -eq $false) -Message 'PowerShell state distinguishes a preexisting customization location'
-    & (Join-Path $repoRoot 'install/uninstall.ps1') -ProfileRoot $ownershipProfile -CopilotRoot $ownershipCopilot -VsCodeUserDirectory $ownershipVsCode | Out-Null
-    $preservedSettings = Get-Content -LiteralPath (Join-Path $ownershipVsCode 'settings.json') -Raw | ConvertFrom-Json
-    Test-Condition -Condition ($preservedSettings.'chat.promptFilesLocations'.PSObject.Properties.Name -contains $existingPromptPath) -Message 'PowerShell uninstall preserves a preexisting package-named customization location'
-    Test-Condition -Condition ($preservedSettings.preserve -eq 'user-value') -Message 'PowerShell uninstall preserves unrelated settings values'
-}
-catch { Test-Condition -Condition $false -Message "PowerShell settings ownership validation succeeds: $($_.Exception.Message)" }
-finally {
-    if (Test-Path -LiteralPath $ownershipSandbox) { Remove-Item -LiteralPath $ownershipSandbox -Recurse -Force }
-}
-
-$tamperSandbox = Join-Path ([IO.Path]::GetTempPath()) ('assured-arc-tamper-' + [guid]::NewGuid().ToString('N'))
-try {
-    $tamperProfile = Join-Path $tamperSandbox 'profile'
-    $tamperVsCode = Join-Path $tamperSandbox 'vscode-user'
-    $tamperCopilot = Join-Path $tamperProfile 'copilot'
-    $protectedVictim = Join-Path $tamperSandbox 'victim'
-    New-Item -ItemType Directory -Path $protectedVictim -Force | Out-Null
-    Set-Content -LiteralPath (Join-Path $protectedVictim 'keep.txt') -Value 'keep' -NoNewline
-    & (Join-Path $repoRoot 'install/assured-arc.ps1') -SkipMcp -SkipExtensions -SkipVault -ProfileRoot $tamperProfile -VsCodeUserDirectory $tamperVsCode -CopilotRoot $tamperCopilot | Out-Null
-    $tamperedState = Get-Content -LiteralPath (Join-Path $tamperProfile 'state.json') -Raw | ConvertFrom-Json
-    $tamperedState.managed += [pscustomobject]@{ kind = 'skill'; target = $protectedVictim }
-    $tamperedState | ConvertTo-Json -Depth 30 | Set-Content -LiteralPath (Join-Path $tamperProfile 'state.json') -Encoding utf8
-    $repeatRejected = $false
-    try { & (Join-Path $repoRoot 'install/assured-arc.ps1') -SkipMcp -SkipExtensions -SkipVault -ProfileRoot $tamperProfile -VsCodeUserDirectory $tamperVsCode -CopilotRoot $tamperCopilot | Out-Null }
-    catch { $repeatRejected = $_.Exception.Message -match 'state integrity validation failed' }
-    Test-Condition -Condition $repeatRejected -Message 'PowerShell repeat install rejects tampered prior state'
-    $tamperRejected = $false
-    try { & (Join-Path $repoRoot 'install/uninstall.ps1') -ProfileRoot $tamperProfile -CopilotRoot $tamperCopilot -VsCodeUserDirectory $tamperVsCode | Out-Null }
-    catch { $tamperRejected = $_.Exception.Message -match 'state integrity validation failed' }
-    Test-Condition -Condition $tamperRejected -Message 'PowerShell uninstall rejects tampered state before path mutation'
-    Test-Condition -Condition (Test-Path -LiteralPath (Join-Path $protectedVictim 'keep.txt')) -Message 'PowerShell rejected tampered state preserves unrelated files'
-}
-catch { Test-Condition -Condition $false -Message "PowerShell tampered state validation succeeds: $($_.Exception.Message)" }
-finally {
-    if (Test-Path -LiteralPath $tamperSandbox) { Remove-Item -LiteralPath $tamperSandbox -Recurse -Force }
-}
-
-$homeProfile = Join-Path $HOME ('.assured-arc-location-test-' + [guid]::NewGuid().ToString('N'))
-try {
-    $homeVsCode = Join-Path $homeProfile 'vscode-user'
-    & (Join-Path $repoRoot 'install/assured-arc.ps1') -SkipMcp -SkipExtensions -SkipVault -ProfileRoot $homeProfile -VsCodeUserDirectory $homeVsCode | Out-Null
-    $homeSettings = Get-Content -LiteralPath (Join-Path $homeVsCode 'settings.json') -Raw | ConvertFrom-Json
-    $locationKeys = @(
-        $homeSettings.'chat.agentFilesLocations'.PSObject.Properties.Name
-        $homeSettings.'chat.promptFilesLocations'.PSObject.Properties.Name
-        $homeSettings.'chat.agentSkillsLocations'.PSObject.Properties.Name
-        $homeSettings.'chat.instructionsFilesLocations'.PSObject.Properties.Name | Where-Object { $_ -like '~/.assured-arc-location-test-*' }
-        $homeSettings.'chat.hookFilesLocations'.PSObject.Properties.Name
-    )
-    Test-Condition -Condition ($locationKeys.Count -eq 5 -and @($locationKeys | Where-Object { $_ -notlike '~/*' }).Count -eq 0) -Message 'PowerShell default global customization locations use supported tilde paths'
-    & (Join-Path $repoRoot 'install/uninstall.ps1') -ProfileRoot $homeProfile -VsCodeUserDirectory $homeVsCode | Out-Null
-}
-catch { Test-Condition -Condition $false -Message "PowerShell tilde location validation succeeds: $($_.Exception.Message)" }
 finally {
     if (Test-Path -LiteralPath $homeProfile) { Remove-Item -LiteralPath $homeProfile -Recurse -Force }
 }
@@ -489,10 +417,14 @@ exit /b 0
     $env:PATH = "$fakeBin$([IO.Path]::PathSeparator)$originalPath"
 
     New-Item -ItemType Directory -Path $mcpVsCode -Force | Out-Null
-    $originalMcp = [ordered]@{ servers = [ordered]@{ unrelated = [ordered]@{ type = 'http'; url = 'https://example.invalid/mcp' } }; inputs = @() }
-    $originalMcp | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $mcpVsCode 'mcp.json') -Encoding utf8
+    $restorePrompt = Join-Path $mcpCopilot 'prompts\plan-implement-verify.prompt.md'
+    New-Item -ItemType Directory -Path (Split-Path -Parent $restorePrompt) -Force | Out-Null
+    $originalPromptText = 'original user prompt'
+    $originalMcpText = '{"servers":{"unrelated":{"type":"http","url":"https://example.invalid/mcp"}},"inputs":[]}'
+    Set-Content -LiteralPath $restorePrompt -Value $originalPromptText -NoNewline
+    Set-Content -LiteralPath (Join-Path $mcpVsCode 'mcp.json') -Value $originalMcpText -NoNewline
 
-    & (Join-Path $repoRoot 'install.ps1') -SkipExtensions -SkipVault -ProfileRoot $mcpProfile -VsCodeUserDirectory $mcpVsCode -CopilotRoot $mcpCopilot | Out-Host
+    & (Join-Path $repoRoot 'install.ps1') -SkipExtensions -SkipVault -ProfileRoot $mcpProfile -VsCodeUserDirectory $mcpVsCode -CopilotRoot $mcpCopilot | Out-Null
     $installedMcpPath = Join-Path $mcpVsCode 'mcp.json'
     $installedMcpText = Get-Content -LiteralPath $installedMcpPath -Raw
     $installedMcp = $installedMcpText | ConvertFrom-Json
@@ -507,15 +439,42 @@ exit /b 0
     Test-Condition -Condition (@($mcpState.managed.kind) -contains 'mcp-runtime') -Message 'PowerShell state records the managed arXiv runtime'
     Test-Condition -Condition ([IO.Path]::IsPathRooted([string]$mcpState.mcp.target)) -Message 'PowerShell state stores canonical MCP ownership target'
 
-    & (Join-Path $repoRoot 'install.ps1') -SkipExtensions -SkipVault -ProfileRoot $mcpProfile -VsCodeUserDirectory $mcpVsCode -CopilotRoot $mcpCopilot | Out-Host
+    $cliMcpHome = Join-Path $mcpSandbox 'cli-home'
+    New-Item -ItemType Directory -Path $cliMcpHome -Force | Out-Null
+    $existingCliSettings = [ordered]@{ keep = 'user-value'; skillDirectories = @((Join-Path $mcpSandbox 'existing-skills')) }
+    $existingCliSettings | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $cliMcpHome 'settings.json') -Encoding utf8
+    $unrelatedCliMcp = [ordered]@{ mcpServers = [ordered]@{ unrelated = [ordered]@{ type = 'http'; url = 'https://example.invalid/mcp'; tools = @('*') } } }
+    $unrelatedCliMcp | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $cliMcpHome 'mcp-config.json') -Encoding utf8
+
+    & (Join-Path $repoRoot 'install.ps1') -InstallCopilotCli -SkipExtensions -SkipVault -ProfileRoot $mcpProfile -VsCodeUserDirectory $mcpVsCode -CopilotRoot $mcpCopilot -CopilotCliRoot $cliMcpHome -CopilotCliCommand (Join-Path $fakeBin 'copilot.cmd') | Out-Null
     Test-Condition -Condition (@(Get-Content -LiteralPath $uvLog).Count -eq 1) -Message 'PowerShell repeated MCP install reuses the pinned immutable arXiv tool'
     $repeatedState = Get-Content -LiteralPath (Join-Path $mcpProfile 'state.json') -Raw | ConvertFrom-Json
     Test-Condition -Condition (@($repeatedState.backups | Where-Object { $_.target -eq $installedMcpPath }).Count -eq 1) -Message 'PowerShell repeated install preserves one original MCP backup'
+    $cliState = $repeatedState
+    Test-Condition -Condition ($cliState.schema -eq 4 -and $cliState.copilotCli.enabled) -Message 'PowerShell state records Copilot CLI ownership with schema 4'
+    Test-Condition -Condition (Test-Path -LiteralPath (Join-Path $cliMcpHome 'agents/assured-arc-orchestrator.agent.md')) -Message 'PowerShell installs agents into the Copilot CLI user profile'
+    Test-Condition -Condition (Test-Path -LiteralPath (Join-Path $cliMcpHome 'instructions/assured-arc-agent-harness.instructions.md')) -Message 'PowerShell installs modular Copilot CLI instructions'
+    Test-Condition -Condition (Test-Path -LiteralPath (Join-Path $cliMcpHome 'hooks/assured-arc.json')) -Message 'PowerShell installs Copilot CLI user hooks'
+    $cliHooks = Get-Content -LiteralPath (Join-Path $cliMcpHome 'hooks/assured-arc.json') -Raw | ConvertFrom-Json
+    Test-Condition -Condition ($cliHooks.version -eq 1 -and $cliHooks.hooks.preToolUse[0].env.ASSURED_ARC_HARNESS_HOST -eq 'copilot-cli') -Message 'PowerShell renders the Copilot CLI hook contract'
+    $cliSettings = Get-Content -LiteralPath (Join-Path $cliMcpHome 'settings.json') -Raw | ConvertFrom-Json
+    Test-Condition -Condition ($cliSettings.keep -eq 'user-value' -and @($cliSettings.skillDirectories).Count -eq 2) -Message 'PowerShell preserves CLI settings and registers managed skills once'
+    $cliVsCodeSettings = Get-Content -LiteralPath (Join-Path $mcpVsCode 'settings.json') -Raw | ConvertFrom-Json
+    Test-Condition -Condition (@($cliVsCodeSettings.'chat.agentFilesLocations'.PSObject.Properties.Name)[0] -like '*/cli-home/agents') -Message 'VS Code and Copilot CLI share the CLI-native agent directory'
+    $installedCliMcp = Get-Content -LiteralPath (Join-Path $cliMcpHome 'mcp-config.json') -Raw | ConvertFrom-Json
+    $installedCliMcpIds = @($installedCliMcp.mcpServers.PSObject.Properties.Name | Sort-Object)
+    Test-Condition -Condition (($installedCliMcpIds -join '|') -eq ((@($expectedMcpIds + 'unrelated') | Sort-Object) -join '|')) -Message 'PowerShell configures exactly the reviewed MCP servers for Copilot CLI'
+    Test-Condition -Condition ($installedCliMcp.mcpServers.unrelated.url -eq 'https://example.invalid/mcp') -Message 'PowerShell preserves unrelated Copilot CLI MCP servers'
+    Test-Condition -Condition (Test-Path -LiteralPath $installedCliMcp.mcpServers.arxiv.command) -Message 'PowerShell Copilot CLI MCP uses the managed arXiv runtime'
+    Test-Condition -Condition ((@($cliState.copilotCli.mcp.serverIds | Sort-Object) -join '|') -eq ($expectedMcpIds -join '|')) -Message 'PowerShell state records Copilot CLI MCP ownership'
+    & (Join-Path $repoRoot 'install.ps1') -InstallCopilotCli -SkipMcp -SkipExtensions -SkipVault -ProfileRoot $mcpProfile -VsCodeUserDirectory $mcpVsCode -CopilotRoot $mcpCopilot -CopilotCliRoot $cliMcpHome -CopilotCliCommand (Join-Path $fakeBin 'copilot.cmd') | Out-Null
+    $cliSettings = Get-Content -LiteralPath (Join-Path $cliMcpHome 'settings.json') -Raw | ConvertFrom-Json
+    Test-Condition -Condition (@($cliSettings.skillDirectories).Count -eq 2) -Message 'PowerShell repeated CLI install remains idempotent'
 
     $movedVsCode = Join-Path $mcpSandbox 'moved-vscode-user'
     $moveRejected = $false
     try {
-        & (Join-Path $repoRoot 'install.ps1') -SkipExtensions -SkipVault -ProfileRoot $mcpProfile -VsCodeUserDirectory $movedVsCode -CopilotRoot $mcpCopilot | Out-Host
+        & (Join-Path $repoRoot 'install.ps1') -SkipExtensions -SkipVault -ProfileRoot $mcpProfile -VsCodeUserDirectory $movedVsCode -CopilotRoot $mcpCopilot | Out-Null
     }
     catch { $moveRejected = $_.Exception.Message -match 'cannot migrate' }
     Test-Condition -Condition $moveRejected -Message 'PowerShell MCP ownership cannot migrate to another user configuration'
@@ -525,33 +484,27 @@ exit /b 0
     $jsoncMcp = "{`n  // retained user comment`n" + $strictMcp.Substring(1, $strictMcp.Length - 2) + ",`n}`n"
     Set-Content -LiteralPath $installedMcpPath -Value $jsoncMcp -NoNewline
 
-    & (Join-Path $repoRoot 'install/uninstall.ps1') -ProfileRoot $mcpProfile -CopilotRoot $mcpCopilot -VsCodeUserDirectory $mcpVsCode | Out-Host
+    & (Join-Path $repoRoot 'install/uninstall.ps1') -ProfileRoot $mcpProfile -CopilotRoot $mcpCopilot -CopilotCliRoot $cliMcpHome -VsCodeUserDirectory $mcpVsCode | Out-Null
     Test-Condition -Condition (-not (Test-Path -LiteralPath (Join-Path $mcpProfile 'mcp\arxiv-0.5.1'))) -Message 'PowerShell uninstall removes the managed arXiv runtime'
     $remainingMcp = Get-Content -LiteralPath $installedMcpPath -Raw | ConvertFrom-Json
     $remainingServerIds = @($remainingMcp.servers.PSObject.Properties.Name)
     Test-Condition -Condition ($remainingServerIds.Count -eq 1 -and $remainingServerIds[0] -eq 'unrelated') -Message 'PowerShell uninstall removes package MCP entries and preserves unrelated entries'
     Test-Condition -Condition $true -Message 'PowerShell uninstall accepts valid JSONC MCP configuration'
-
-    $cliMcpRoot = Join-Path $mcpSandbox 'cli-profile'
-    $cliMcpProfile = Join-Path $cliMcpRoot 'profile'
-    $cliMcpVsCode = Join-Path $cliMcpRoot 'vscode-user'
-    $cliMcpManaged = Join-Path $cliMcpRoot 'managed'
-    $cliMcpHome = Join-Path $cliMcpRoot 'cli-home'
-    New-Item -ItemType Directory -Path $cliMcpVsCode,$cliMcpHome -Force | Out-Null
-    $unrelatedCliMcp = [ordered]@{ mcpServers = [ordered]@{ unrelated = [ordered]@{ type = 'http'; url = 'https://example.invalid/mcp'; tools = @('*') } } }
-    $unrelatedCliMcp | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $cliMcpHome 'mcp-config.json') -Encoding utf8
-    & (Join-Path $repoRoot 'install.ps1') -InstallCopilotCli -SkipExtensions -SkipVault -ProfileRoot $cliMcpProfile -VsCodeUserDirectory $cliMcpVsCode -CopilotRoot $cliMcpManaged -CopilotCliRoot $cliMcpHome -CopilotCliCommand (Join-Path $fakeBin 'copilot.cmd') | Out-Host
-    $installedCliMcp = Get-Content -LiteralPath (Join-Path $cliMcpHome 'mcp-config.json') -Raw | ConvertFrom-Json
-    $installedCliMcpIds = @($installedCliMcp.mcpServers.PSObject.Properties.Name | Sort-Object)
-    Test-Condition -Condition (($installedCliMcpIds -join '|') -eq ((@($expectedMcpIds + 'unrelated') | Sort-Object) -join '|')) -Message 'PowerShell configures exactly the reviewed MCP servers for Copilot CLI'
-    Test-Condition -Condition ($installedCliMcp.mcpServers.unrelated.url -eq 'https://example.invalid/mcp') -Message 'PowerShell preserves unrelated Copilot CLI MCP servers'
-    Test-Condition -Condition (Test-Path -LiteralPath $installedCliMcp.mcpServers.arxiv.command) -Message 'PowerShell Copilot CLI MCP uses the managed arXiv runtime'
-    $cliMcpState = Get-Content -LiteralPath (Join-Path $cliMcpProfile 'state.json') -Raw | ConvertFrom-Json
-    Test-Condition -Condition ((@($cliMcpState.copilotCli.mcp.serverIds | Sort-Object) -join '|') -eq ($expectedMcpIds -join '|')) -Message 'PowerShell state records Copilot CLI MCP ownership'
-    & (Join-Path $repoRoot 'install/uninstall.ps1') -ProfileRoot $cliMcpProfile -CopilotRoot $cliMcpManaged -CopilotCliRoot $cliMcpHome -VsCodeUserDirectory $cliMcpVsCode | Out-Host
+    $remainingCliSettings = Get-Content -LiteralPath (Join-Path $cliMcpHome 'settings.json') -Raw | ConvertFrom-Json
     $remainingCliMcp = Get-Content -LiteralPath (Join-Path $cliMcpHome 'mcp-config.json') -Raw | ConvertFrom-Json
+    Test-Condition -Condition ($remainingCliSettings.keep -eq 'user-value' -and @($remainingCliSettings.skillDirectories).Count -eq 1) -Message 'PowerShell CLI uninstall preserves unrelated settings and skill directories'
     $remainingCliMcpIds = @($remainingCliMcp.mcpServers.PSObject.Properties.Name)
+    Test-Condition -Condition ($remainingCliMcpIds.Count -eq 1 -and $remainingCliMcpIds[0] -eq 'unrelated') -Message 'PowerShell CLI uninstall preserves unrelated MCP servers'
     Test-Condition -Condition ($remainingCliMcpIds.Count -eq 1 -and $remainingCliMcpIds[0] -eq 'unrelated') -Message 'PowerShell CLI uninstall removes only package-owned MCP servers'
+    Test-Condition -Condition (-not (Test-Path -LiteralPath (Join-Path $cliMcpHome 'agents/assured-arc-orchestrator.agent.md'))) -Message 'PowerShell CLI uninstall removes package agents'
+    Test-Condition -Condition (-not (Test-Path -LiteralPath (Join-Path $cliMcpHome 'hooks/assured-arc.json'))) -Message 'PowerShell CLI uninstall removes package hooks'
+
+    Set-Content -LiteralPath $restorePrompt -Value $originalPromptText -NoNewline
+    Set-Content -LiteralPath $installedMcpPath -Value $originalMcpText -NoNewline
+    & (Join-Path $repoRoot 'install.ps1') -SkipExtensions -SkipVault -ProfileRoot $mcpProfile -VsCodeUserDirectory $mcpVsCode -CopilotRoot $mcpCopilot | Out-Null
+    & (Join-Path $repoRoot 'install/uninstall.ps1') -ProfileRoot $mcpProfile -CopilotRoot $mcpCopilot -VsCodeUserDirectory $mcpVsCode -RestoreBackups | Out-Null
+    Test-Condition -Condition ((Get-Content -LiteralPath $restorePrompt -Raw) -eq $originalPromptText) -Message 'PowerShell restore returns the original prompt after repeated installs'
+    Test-Condition -Condition ((Get-Content -LiteralPath $installedMcpPath -Raw) -eq $originalMcpText) -Message 'PowerShell restore returns the original MCP file after repeated installs'
 
     $conflictRoot = Join-Path $mcpSandbox 'conflict'
     $conflictProfile = Join-Path $conflictRoot 'profile'
@@ -562,30 +515,11 @@ exit /b 0
     Set-Content -LiteralPath (Join-Path $conflictVsCode 'mcp.json') -Value $conflictText -NoNewline
     $conflicted = $false
     try {
-        & (Join-Path $repoRoot 'install.ps1') -SkipExtensions -SkipVault -ProfileRoot $conflictProfile -VsCodeUserDirectory $conflictVsCode -CopilotRoot $conflictCopilot | Out-Host
+        & (Join-Path $repoRoot 'install.ps1') -SkipExtensions -SkipVault -ProfileRoot $conflictProfile -VsCodeUserDirectory $conflictVsCode -CopilotRoot $conflictCopilot | Out-Null
     }
     catch { $conflicted = $_.Exception.Message -match 'server:context7' }
     Test-Condition -Condition $conflicted -Message 'PowerShell MCP install refuses an unreviewed same-name server conflict'
     Test-Condition -Condition ((Get-Content -LiteralPath (Join-Path $conflictVsCode 'mcp.json') -Raw) -eq $conflictText) -Message 'PowerShell conflict rollback restores the original MCP configuration'
-
-    $restoreRoot = Join-Path $mcpSandbox 'restore'
-    $restoreProfile = Join-Path $restoreRoot 'profile'
-    $restoreVsCode = Join-Path $restoreRoot 'vscode-user'
-    $restoreCopilot = Join-Path $restoreRoot 'copilot'
-    $restorePrompt = Join-Path $restoreCopilot 'prompts\plan-implement-verify.prompt.md'
-    $restoreMcp = Join-Path $restoreVsCode 'mcp.json'
-    New-Item -ItemType Directory -Path (Split-Path -Parent $restorePrompt) -Force | Out-Null
-    New-Item -ItemType Directory -Path (Split-Path -Parent $restoreMcp) -Force | Out-Null
-    $originalPromptText = 'original user prompt'
-    $originalMcpText = '{"servers":{"unrelated":{"type":"http","url":"https://example.invalid/original"}},"inputs":[]}'
-    Set-Content -LiteralPath $restorePrompt -Value $originalPromptText -NoNewline
-    Set-Content -LiteralPath $restoreMcp -Value $originalMcpText -NoNewline
-    1..2 | ForEach-Object {
-        & (Join-Path $repoRoot 'install.ps1') -SkipExtensions -SkipVault -ProfileRoot $restoreProfile -VsCodeUserDirectory $restoreVsCode -CopilotRoot $restoreCopilot | Out-Host
-    }
-    & (Join-Path $repoRoot 'install/uninstall.ps1') -ProfileRoot $restoreProfile -CopilotRoot $restoreCopilot -VsCodeUserDirectory $restoreVsCode -RestoreBackups | Out-Host
-    Test-Condition -Condition ((Get-Content -LiteralPath $restorePrompt -Raw) -eq $originalPromptText) -Message 'PowerShell restore returns the original prompt after repeated installs'
-    Test-Condition -Condition ((Get-Content -LiteralPath $restoreMcp -Raw) -eq $originalMcpText) -Message 'PowerShell restore returns the original MCP file after repeated installs'
 }
 catch {
     Test-Condition -Condition $false -Message "PowerShell isolated MCP lifecycle succeeds: $($_.Exception.Message)"

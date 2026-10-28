@@ -1,5 +1,8 @@
 [CmdletBinding()]
-param()
+param(
+    [Parameter(ValueFromPipeline = $true)]
+    [string]$InputJson
+)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -11,10 +14,25 @@ function Get-OpaqueId {
     return ([Convert]::ToHexString($hash).ToLowerInvariant()).Substring(0, 16)
 }
 
+if (-not (Get-Variable -Name AssuredArcJsonCache -Scope Global -ErrorAction SilentlyContinue)) {
+    $global:AssuredArcJsonCache = @{}
+}
+
 function Read-JsonFile {
     param([string]$Path, $Fallback)
     try {
-        if (Test-Path -LiteralPath $Path) { return Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json }
+        if (Test-Path -LiteralPath $Path) {
+            $fileItem = Get-Item -LiteralPath $Path -Force
+            $cacheKey = "$($fileItem.FullName)|$($fileItem.LastWriteTimeUtc.Ticks)"
+            if ($global:AssuredArcJsonCache.ContainsKey($cacheKey)) {
+                return $global:AssuredArcJsonCache[$cacheKey]
+            }
+            $parsed = [IO.File]::ReadAllText($fileItem.FullName) | ConvertFrom-Json
+            if ($fileItem.Name -in @('agent-harness.json', 'tool-policy.json')) {
+                $global:AssuredArcJsonCache[$cacheKey] = $parsed
+            }
+            return $parsed
+        }
     }
     catch {}
     return $Fallback
@@ -22,13 +40,15 @@ function Read-JsonFile {
 
 function Write-HookOutput {
     param($Value)
-    [Console]::Out.Write(($Value | ConvertTo-Json -Compress -Depth 20))
+    $json = $Value | ConvertTo-Json -Compress -Depth 20
+    if ($script:DirectInputMode) { Write-Output $json }
+    else { [Console]::Out.Write($json) }
 }
 
 function Write-RunReceipt {
     param([string]$TraceRoot, [string]$Session, [string]$Workspace, [string]$HostName, $State, [string]$Status)
     $directory = Join-Path $TraceRoot 'receipts'
-    New-Item -ItemType Directory -Path $directory -Force | Out-Null
+    [void][IO.Directory]::CreateDirectory($directory)
     $target = Join-Path $directory ((Get-Date).ToUniversalTime().Ticks.ToString() + "-$Session.json")
     $temporary = "$target.$PID.tmp"
     $counts = [ordered]@{}
@@ -45,7 +65,7 @@ function Write-RunReceipt {
         completionStatus = $Status
     }
     [IO.File]::WriteAllText($temporary, ($receipt | ConvertTo-Json -Compress -Depth 5) + [Environment]::NewLine, [Text.UTF8Encoding]::new($false))
-    Move-Item -LiteralPath $temporary -Destination $target
+    [IO.File]::Move($temporary, $target, $true)
 }
 
 function Get-ScopeText {
@@ -64,6 +84,11 @@ function Get-HumanGateDecision {
     $capability = ''
     $toolProperty = $ToolPolicy.tools.PSObject.Properties[$ToolName]
     if ($toolProperty) { $capability = [string]$toolProperty.Value }
+    if (-not $capability) {
+        foreach ($entry in @($ToolPolicy.prefixes)) {
+            if ($ToolName.StartsWith([string]$entry.prefix, [StringComparison]::OrdinalIgnoreCase)) { $capability = [string]$entry.capability; break }
+        }
+    }
     $writeNames = @('apply_patch', 'create', 'create_directory', 'create_file', 'edit', 'edit_notebook_file', 'Edit', 'Write', 'NotebookEdit', 'vscode_renameSymbol')
     $mutating = ($writeNames -contains $ToolName) -or ($capability -eq 'write') -or ($capability -in @('execute', 'execute-network', 'dependency-mutation', 'external-write', 'destructive'))
     if (-not $mutating) { return $null }
@@ -146,7 +171,8 @@ function ConvertTo-HostResponse {
     return $native
 }
 
-$raw = [Console]::In.ReadToEnd()
+$script:DirectInputMode = $PSBoundParameters.ContainsKey('InputJson')
+$raw = if ($script:DirectInputMode) { $InputJson } else { [Console]::In.ReadToEnd() }
 try { $event = if ([string]::IsNullOrWhiteSpace($raw)) { [pscustomobject]@{} } else { $raw | ConvertFrom-Json } }
 catch { [Console]::Error.WriteLine('Agent harness hook failed: invalid JSON input'); exit 2 }
 $hostName = if ($env:ASSURED_ARC_HARNESS_HOST) { $env:ASSURED_ARC_HARNESS_HOST.ToLowerInvariant() } else { 'vscode' }
@@ -201,7 +227,7 @@ $reason = $null
 try {
     $locked = $mutex.WaitOne(3000)
     if (-not $locked) { throw 'Unable to acquire harness state lock.' }
-    New-Item -ItemType Directory -Path $stateDir -Force | Out-Null
+    [void][IO.Directory]::CreateDirectory($stateDir)
     $state = Read-JsonFile -Path $statePath -Fallback ([pscustomobject]@{
         subagents_started = 0
         active_workers = @()
@@ -355,6 +381,8 @@ try {
             foreach ($marker in $protectedPaths) { if ($payload.Contains($marker)) { $protected = $true; break } }
             $globalConfiguration = $false
             foreach ($marker in $globalSettings) { if ($payload.Contains($marker)) { $globalConfiguration = $true; break } }
+            $toolInput = if ($event.PSObject.Properties.Name -contains 'tool_input') { $event.tool_input } else { $null }
+            $gate = if ($allowedWorkers -contains $taskAgent) { $null } else { Get-HumanGateDecision -ToolName $toolName -ToolInput $toolInput -ToolPolicy $toolPolicy }
             if ($allowedWorkers -contains $taskAgent) {
                 $maximumParallel = if ($config.delegation.maximumParallelWorkers) { [int]$config.delegation.maximumParallelWorkers } else { 3 }
                 $maximumInvocations = if ($config.delegation.maximumWorkerInvocationsPerSession) { [int]$config.delegation.maximumWorkerInvocationsPerSession } else { 7 }
@@ -371,6 +399,9 @@ try {
                     if ($isWriter) { $state.writer_invocations = [int]$state.writer_invocations + 1 }
                     $decision = 'allow'; $reason = 'Delegation is within the bounded worker policy.'
                 }
+            }
+            elseif ($gate) {
+                $decision = [string]$gate.decision; $reason = [string]$gate.reason
             }
             elseif ([int]$state.tool_calls -gt $maximum) {
                 $decision = 'deny'; $reason = "Harness tool-call budget exceeded ($maximum)."
@@ -398,11 +429,6 @@ try {
             }
             elseif (-not $capability) {
                 $decision = [string]$toolPolicy.unknownDecision; $reason = 'Unknown tool capability requires review before use.'
-            }
-            if ($decision -ne 'deny') {
-                $toolInput = if ($event.PSObject.Properties.Name -contains 'tool_input') { $event.tool_input } else { $null }
-                $gate = Get-HumanGateDecision -ToolName $toolName -ToolInput $toolInput -ToolPolicy $toolPolicy
-                if ($gate) { $decision = [string]$gate.decision; $reason = [string]$gate.reason }
             }
             if ($decision -ne 'observe') {
                 $response = [ordered]@{
@@ -469,7 +495,7 @@ try {
 
     $temporary = "$statePath.$PID.tmp"
     [IO.File]::WriteAllText($temporary, ($state | ConvertTo-Json -Compress), [Text.UTF8Encoding]::new($false))
-    Move-Item -LiteralPath $temporary -Destination $statePath -Force
+    [IO.File]::Move($temporary, $statePath, $true)
 }
 catch {
     [Console]::Error.WriteLine("Agent harness hook failed: $($_.Exception.GetType().Name)")
@@ -482,7 +508,7 @@ finally {
 }
 
 try {
-    New-Item -ItemType Directory -Path $traceRoot -Force | Out-Null
+    [void][IO.Directory]::CreateDirectory($traceRoot)
     if ($eventName -eq 'SessionStart') {
         $retention = if ($config.tracing.retentionDays) { [int]$config.tracing.retentionDays } else { 14 }
         $cutoff = (Get-Date).ToUniversalTime().AddDays(-[Math]::Max(1, $retention))
@@ -520,7 +546,7 @@ if ($eventName -in @('Stop', 'SessionEnd', 'AgentStop') -and -not ($response.Con
 }
 
 if ($eventName -in @('Stop', 'SessionEnd') -and -not ($response.Contains('continue') -and $response.continue -eq $false)) {
-    Remove-Item -LiteralPath $statePath -Force -ErrorAction SilentlyContinue
+    if ([IO.File]::Exists($statePath)) { [IO.File]::Delete($statePath) }
 }
 
 Write-HookOutput (ConvertTo-HostResponse -Response $response -HostName $hostName -EventName $eventName)

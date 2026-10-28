@@ -19,7 +19,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Updated `hooks/harness_event.py` and `hooks/harness-event.ps1` (`_human_gate_decision` / `Get-HumanGateDecision`) to evaluate human-gated path restrictions first in `PreToolUse`, denying mutations to `.github/agents`, `.github/skills`, `.github/hooks`, `.claude/agents`, `.claude/settings.json`, `mcp.json`, `hooks/`, `scripts/`, `install/`, and `config/*` before fallback policies (`ask`) unless `ASSURED_ARC_HUMAN_GATE=open` is set by a human.
   - Added opt-in gate for dynamic workflow generation (`ASSURED_ARC_DYNAMIC_WORKFLOWS=1`).
 - **First-Class Web Research & Surfing Skill (`assured-arc-web-research`)**:
-  - Added `.github/skills/assured-arc-web-research/SKILL.md` and registered it in `config/skill-registry.json` (expanding the library to 28 portable skills) to guide live web search (`web`, `WebSearch`, `web_search`), primary URL fetching (`WebFetch`, `fetch_webpage`, `web_fetch`), citation provenance, and prompt-injection quarantine across `Assured Arc Research`, `Assured Arc Disposable Researcher`, and `assured-arc-researcher`.
+  - Added `.github/skills/assured-arc-web-research/SKILL.md` and registered it in `config/skill-registry.json` (27 -> 28 skills) to guide live web search (`web`, `WebSearch`, `web_search`), primary URL fetching (`WebFetch`, `fetch_webpage`, `web_fetch`), citation provenance, and prompt-injection quarantine across `Assured Arc Research`, `Assured Arc Disposable Researcher`, and `assured-arc-researcher`.
+- **Codebase Reuse & Workspace Hygiene (`assured-arc-codebase-reuse-hygiene`, `config/checks/approved_check.py`, `scripts/route_skills.py`)**:
+  - Added `.github/skills/assured-arc-codebase-reuse-hygiene/SKILL.md` (expanding the catalog from 28 to 29 portable skills), pinned it alongside `assured-arc-development-quality` in `mandatoryForCodeChanges`, added `scripts/route_skills.py` for deterministic skill routing, and upgraded `config/checks/approved_check.py` with Python `ast` checks for syntax errors, duplicate top-level definitions, leftover debug breakpoints, scratch artifacts, and unresolved conflict markers.
+- **High-Readability Architecture & 6-Stage Harness Diagrams (`docs/assets/*.{svg,gif}`)**:
+  - Upgraded `docs/assets/assured-arc-architecture.{svg,gif}` and `docs/assets/assured-arc-harness-architecture.{svg,gif}` to a crisp `1200x720` large-typography layout and removed redundant legacy installation-flow assets.
 
 ### Changed
 

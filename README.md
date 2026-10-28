@@ -4,7 +4,8 @@
 [![Release](https://img.shields.io/badge/release-v1.1.0-0284C7?style=flat-square&logo=github)](https://github.com/4R9UN/Assured-Arc/releases/tag/v1.1.0)
 [![Hosts](https://img.shields.io/badge/hosts-VS%20Code%20%7C%20Copilot%20CLI%20%7C%20Claude%20Code-9333EA?style=flat-square)](#at-a-glance)
 [![Agents](https://img.shields.io/badge/agents-7%20Visible%20%2B%205%20Disposable%20%2B%206%20Claude-38BDF8?style=flat-square)](docs/AGENTS.md)
-[![Skills](https://img.shields.io/badge/skills-28%20Lazy--Loaded-10B981?style=flat-square)](docs/SKILLS.md)
+[![Skills](https://img.shields.io/badge/skills-29%20Lazy--Loaded-10B981?style=flat-square)](docs/SKILLS.md)
+[![Code Hygiene](https://img.shields.io/badge/code%20hygiene-Reuse--First%20%2B%20Zero%20Bloat-14B8A6?style=flat-square)](docs/SKILLS.md#assured-arc-codebase-reuse-and-hygiene)
 [![Web Research](https://img.shields.io/badge/web%20research-Live%20Surfing%20%2B%20Context7%20%2B%20arXiv-A855F7?style=flat-square)](docs/SKILLS.md#assured-arc-web-research)
 [![Governance](https://img.shields.io/badge/governance-Single--Writer%20%2B%20Scoreboard%20Gate-059669?style=flat-square)](docs/HARNESS.md)
 [![Human Gate](https://img.shields.io/badge/human%20gate-Protected%20Control%20Plane-E11D48?style=flat-square)](docs/HARNESS.md)
@@ -25,6 +26,7 @@ It is built for developers, engineering teams, workshops, and maintainers who ne
 - **External Scoreboard Verification Gate (`scripts/scoreboard.py` + `config/scoreboard.json`)**: Verify-after-write is enforced by deterministic hooks rather than prompt instructions. Any file write sets `pendingVerification = true`, blocking `Stop` completion until `scripts/scoreboard.py` executes approved checks (`config/checks/approved_check.py`) and writes a session- and cryptographic `verificationNonce`-matched `verification-receipt`.
 - **Strict Human-Gated Path Precedence**: `PreToolUse` hooks (`hooks/harness_event.py` and `hooks/harness-event.ps1`) evaluate human-gated boundaries first, strictly denying on-task edits to `.github/agents`, `.github/skills`, `.github/hooks`, `.claude/agents`, `.claude/settings.json`, `mcp.json`, `hooks/`, `scripts/`, `install/`, and `config/*` before fallback policies (`ask`) unless `ASSURED_ARC_HUMAN_GATE=open` is set by a human.
 - **Web Research & Surfing Skill (`assured-arc-web-research`)**: Added a portable skill for live web search (`web`, `WebSearch`), primary URL fetching (`WebFetch`, `fetch_webpage`), source provenance, and untrusted web content quarantine.
+- **Codebase Reuse & Anti-Bloat Hygiene (`assured-arc-codebase-reuse-hygiene` + `config/checks/approved_check.py`)**: Enforces mapping and reusing existing codebase modules before writing new code, forbids duplicate helpers or speculative bloat, cleans up dead code and temporary files, and verifies workspace hygiene in the external scoreboard check.
 
 ## At a glance
 
@@ -35,7 +37,7 @@ It is built for developers, engineering teams, workshops, and maintainers who ne
 | **Agents** | 7 visible Copilot specialists, 5 hidden disposable Copilot workers, and 6 contract-rendered Claude Code role adapters |
 | **Hosts** | VS Code by default, native Claude Code adapter rendering (`.claude/` & `<profile-root>/claude`), plus explicit personal-profile opt-in for GitHub Copilot CLI |
 | **Orchestration** | Native coordinator, single implementation writer, delegation depth `1`, up to `3` concurrent workers, external scoreboard verification, and bounded repair (`≤ 2`) |
-| **Skills & prompts** | 28 portable lazy-loaded skills (`config/skill-registry.json`, including `assured-arc-web-research`) and 6 VS Code reusable slash-command prompts (`.github/prompts/*.prompt.md`) |
+| **Skills & prompts** | 29 portable lazy-loaded skills (`config/skill-registry.json`, including `assured-arc-web-research` and `assured-arc-codebase-reuse-hygiene`) and 6 VS Code reusable slash-command prompts (`.github/prompts/*.prompt.md`) |
 | **Verification gate** | Hook-enforced `scripts/scoreboard.py` + `config/scoreboard.json` with 32-hex cryptographic nonce receipts (`selfScoreAllowed: false`) |
 | **Web & MCP research** | Host live web surfing (`web`, `WebSearch`, `WebFetch`), Context7 (HTTPS), Sequential Thinking `2026.7.4`, and isolated `uv`-managed arXiv MCP `0.5.1` |
 | **Knowledge** | Optional portable Markdown and Obsidian vault template (`vault-template/`) |
@@ -89,8 +91,8 @@ This repository provides a manifest-driven setup with safe defaults:
 | **Safe installation** | Install profiles (`Minimal`, `Research`, `Full`, `CopilotCli`), merged settings, state SHA-256 checksum, backups, `doctor`, rollback, and uninstall | Existing unrelated settings and MCP entries are preserved |
 | **Dual-host contract** | Canonical `config/agent-contract.json` rendered into Claude Code adapters (`.claude/agents/*.md`, `.claude/settings.json`) alongside Copilot | Never copies Copilot agent files into Claude; forbids runtime agent/skill invention |
 | **Native orchestration** | Coordinator plus Scout, Researcher, Implementer, Verifier, and Critic workers | Delegation depth `1`, `1` active writer, `≤ 3` parallel workers, and no nested subagents |
-| **Context-efficient skills** | Compact registry selects up to `3` domain skills, with Development Quality added for code changes | The full 28-skill library is never injected into every prompt |
-| **Scoreboard verification gate** | Hook-driven `scripts/scoreboard.py` runs approved checks (`config/scoreboard.json`) after any file edit | `Stop` hook blocks completion until a session- and nonce-matched receipt passes; no self-scoring |
+| **Context-efficient skills** | Compact registry selects up to `3` domain skills, with Development Quality and Reuse/Hygiene discipline for code changes | The full 29-skill library is never injected into every prompt |
+| **Scoreboard verification gate** | Hook-driven `scripts/scoreboard.py` runs approved workspace hygiene and contract checks (`config/scoreboard.json`) after any file edit | `Stop` hook blocks completion until a session- and nonce-matched receipt passes; no self-scoring |
 | **Web & research tooling** | Live web surfing (`assured-arc-web-research`), current library docs (Context7), structured analysis (Sequential Thinking), and paper search (arXiv) | Web and MCP tools are available to read-only researchers, never to the implementation writer |
 | **Deterministic policy hooks** | Strict human-gated path precedence, worker/tool budgets, approval checks, and metadata-only traces | Traces and run receipts exclude prompts, reasoning, file contents, arguments, results, and secrets |
 | **Durable project context** | Optional Markdown and Obsidian vault with MOCs and project templates | Private artifacts stay under `local-only/` |
@@ -120,7 +122,7 @@ flowchart LR
     CL --> HK
     CP --> SC[External scoreboard & checks]
     CP --> SR[Compact skill registry]
-    SR --> S[28 lazy-loaded portable skills]
+    SR --> S[29 lazy-loaded portable skills]
     CP --> IN[Targeted global instructions]
     V --> K[Project knowledge & MOCs]
     M --> T[Least-privilege MCP tools]
@@ -283,11 +285,11 @@ Prompts reference packaged agents instead of duplicating their full policies. A 
 
 ## Included skills
 
-The package includes **28 curated skills**. The installed [skill registry](config/skill-registry.json) routes each request to no more than three domain skills. Code-changing tasks always add the Development Quality gate.
+The package includes **29 curated skills**. The installed [skill registry](config/skill-registry.json) routes each request to no more than three domain skills. Code-changing tasks always add the Development Quality and Codebase Reuse & Hygiene gates.
 
 | Category | Skills | Why it matters |
 | --- | --- | --- |
-| Core | Skill Router, Development Quality, Repository Onboarding, Task Planning, Agent Orchestration, Context Efficiency | Select focused context, coordinate bounded workers, and reduce repeated tokens |
+| Core | Skill Router, Development Quality, Codebase Reuse and Hygiene, Repository Onboarding, Task Planning, Agent Orchestration, Context Efficiency | Select focused context, reuse existing modules before writing code, coordinate bounded workers, and reduce repeated tokens |
 | Design | Architecture Design | Resolve boundaries and tradeoffs before expensive implementation |
 | Implementation | Backend and API, Frontend and Accessibility, Python Quality, Data and SQL, Configuration Management | Apply stack-aware implementation guidance only when relevant |
 | Quality | Debugging, Testing, Code Review, Performance and Reliability, Security and Privacy, Error Handling, Observability, Agent Evaluation, Ponytail | Find root causes, verify behavior, test loops, reduce defects, and remove unnecessary complexity |
@@ -510,7 +512,7 @@ See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for detailed diagnostics.
 │   ├── instructions/          # Targeted AI instructions
 │   ├── prompts/               # 6 reusable VS Code slash-command prompt files
 │   ├── hooks/                 # Portable hook configuration templates (VS Code & CLI)
-│   └── skills/                # 28 lazy-loaded reusable workflows
+│   └── skills/                # 29 lazy-loaded reusable workflows
 ├── config/                    # Shared contract, harness policy, scoreboard, and manifests
 │   └── checks/                # Approved deterministic verification checks
 ├── docs/                      # Architecture, harness, MCP, skills, and troubleshooting guides

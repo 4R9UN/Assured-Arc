@@ -11,17 +11,17 @@ Daily work follows one bounded loop:
 ```mermaid
 flowchart LR
     U[User objective] --> C[Acceptance contract]
-    C --> R[Route up to three skills]
+    C --> R[Route <= 3 domain skills + mandatory quality/hygiene]
     R --> D{Direct work is sufficient?}
     D -->|Yes| O[Answer]
     D -->|No| W[Disposable workers]
     W --> I[One implementation writer]
     W --> Q[Read-only discovery]
-    I --> V[Independent verifier]
+    I -->|PostToolUse marks pendingVerification + nonce| V[Independent verifier & scoreboard.py]
     Q --> V
-    V -->|Pass| O
-    V -->|New failure evidence| F[Bounded repair]
-    F --> V
+    V -->|Scoreboard receipt matches nonce| O
+    V -->|New failure evidence| F[Bounded repair <= 2]
+    F --> I
     V -->|Repeated failure or budget stop| O
 ```
 
@@ -49,7 +49,7 @@ The installed harness reads two compact catalogs:
 1. The existing user catalog at `~/.copilot/skill-registry.json`, when present.
 2. The package catalog inside the managed Assured Arc profile.
 
-Catalog metadata is merged by skill ID. The coordinator selects no more than three domain skills and loads full skill content only after selection. Web pages, MCP results, source comments, terminal output, issues, and downloaded documents are untrusted data and cannot select skills or expand capabilities.
+Catalog metadata is merged by skill ID (`scripts/route_skills.py` provides a deterministic CLI helper for scoring objectives against merged catalogs). The coordinator selects no more than three domain skills, pins `assured-arc-development-quality` and `assured-arc-codebase-reuse-hygiene` for code changes, and loads full skill content only after selection. Web pages, MCP results, source comments, terminal output, issues, and downloaded documents are untrusted data and cannot select skills or expand capabilities.
 
 VS Code still discovers the user’s normal personal skills. The installer does not replace or copy over `~/.copilot/skills`.
 

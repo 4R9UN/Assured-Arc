@@ -16,18 +16,33 @@ $patterns = @(
 )
 
 $findings = [System.Collections.ArrayList]@()
-Get-ChildItem -LiteralPath $repoRoot -Recurse -File | ForEach-Object {
-    $relative = $_.FullName.Substring($repoRoot.Length).TrimStart('\', '/') -replace '\\', '/'
-    if ($relative -like '.git/*' -or $relative -like '.venv/*' -or $excluded -contains $relative) { return }
-    if ($_.Extension -in @('.png', '.jpg', '.jpeg', '.gif', '.zip', '.exe', '.dll', '.pyc')) { return }
-    $text = Get-Content -LiteralPath $_.FullName -Raw -ErrorAction SilentlyContinue
-    foreach ($pattern in $patterns) {
-        if ($text -match $pattern) {
-            $findings.Add("$relative matches $pattern") | Out-Null
-            break
+$combinedPattern = '(' + ($patterns -join '|') + ')'
+$binaryExtensions = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+foreach ($ext in @('.png', '.jpg', '.jpeg', '.gif', '.zip', '.exe', '.dll', '.pyc')) { [void]$binaryExtensions.Add($ext) }
+
+function Scan-Directory([string]$Dir) {
+    foreach ($subDir in [IO.Directory]::GetDirectories($Dir)) {
+        $leaf = [IO.Path]::GetFileName($subDir)
+        if ($leaf -in @('.git', '.venv', 'venv', 'node_modules', '__pycache__')) { continue }
+        Scan-Directory $subDir
+    }
+    foreach ($file in [IO.Directory]::GetFiles($Dir)) {
+        $ext = [IO.Path]::GetExtension($file)
+        if ($binaryExtensions.Contains($ext)) { continue }
+        $relative = $file.Substring($repoRoot.Length).TrimStart('\', '/') -replace '\\', '/'
+        if ($excluded -contains $relative) { continue }
+        $text = [IO.File]::ReadAllText($file)
+        if ($text -match $combinedPattern) {
+            foreach ($pattern in $patterns) {
+                if ($text -match $pattern) {
+                    $findings.Add("$relative matches $pattern") | Out-Null
+                    break
+                }
+            }
         }
     }
 }
+Scan-Directory $repoRoot
 
 if ($findings.Count -gt 0) {
     throw "Public safety scan failed: $($findings -join '; ')"

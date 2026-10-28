@@ -21,8 +21,8 @@ ROOT = Path(__file__).resolve().parents[1]
 ASSET_DIR = ROOT / "docs" / "assets"
 PLAYWRIGHT_ROOT = Path(os.environ["LOCALAPPDATA"]) / "ms-playwright"
 ASSETS = {
-    "assured-arc-architecture": (1280, 768, 4.0),
-    "assured-arc-harness-architecture": (1280, 760, 4.0),
+    "assured-arc-architecture": (1200, 720, 4.0),
+    "assured-arc-harness-architecture": (1200, 720, 4.0),
 }
 
 SVG_NS = "http://www.w3.org/2000/svg"
@@ -170,6 +170,7 @@ def _render_frame(source: Path, target: Path, elapsed: float, width: int, height
             "--headless",
             "--disable-gpu",
             "--hide-scrollbars",
+            "--force-device-scale-factor=2",
             f"--window-size={width},{height}",
             f"--screenshot={target}",
             staged.resolve().as_uri(),
@@ -196,9 +197,12 @@ def capture(name: str, width: int, height: int, duration: float, fps: int) -> No
             ]
             for future in futures:
                 future.result()
-        rgb_frames = [Image.open(frame).convert("RGB") for frame in frame_paths]
+        rgb_frames = [
+            Image.open(frame).convert("RGB").resize((width, height), Image.Resampling.LANCZOS)
+            for frame in frame_paths
+        ]
 
-        palette = rgb_frames[0].quantize(colors=128, method=Image.Quantize.FASTOCTREE)
+        palette = rgb_frames[0].quantize(colors=256, method=Image.Quantize.MEDIANCUT)
         frames = [
             image.quantize(palette=palette, dither=Image.Dither.NONE)
             for image in rgb_frames
@@ -219,7 +223,7 @@ def capture(name: str, width: int, height: int, duration: float, fps: int) -> No
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("names", nargs="*", choices=sorted(ASSETS))
-    parser.add_argument("--fps", type=int, default=8)
+    parser.add_argument("--fps", type=int, default=5)
     args = parser.parse_args()
     names = args.names or list(ASSETS)
     for name in names:

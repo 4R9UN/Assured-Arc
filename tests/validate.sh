@@ -9,7 +9,7 @@ for script in "${ROOT}/install/assured-arc.sh" "${ROOT}/install/uninstall.sh" "$
   bash -n "$script"
   echo "PASS shell syntax: $(basename "$script")"
 done
-python3 -m py_compile "${ROOT}/hooks/harness_event.py" "${ROOT}/scripts/scoreboard.py" "${ROOT}/scripts/render_contract.py" "${ROOT}/tests/harness_contracts.py" "${ROOT}/tests/harness_evaluator.py"
+python3 -m py_compile "${ROOT}/hooks/harness_event.py" "${ROOT}/scripts/scoreboard.py" "${ROOT}/scripts/render_contract.py" "${ROOT}/scripts/route_skills.py" "${ROOT}/config/checks/approved_check.py" "${ROOT}/tests/harness_contracts.py" "${ROOT}/tests/harness_evaluator.py"
 python3 "${ROOT}/tests/harness_contracts.py"
 python3 "${ROOT}/tests/harness_evaluator.py" --json
 

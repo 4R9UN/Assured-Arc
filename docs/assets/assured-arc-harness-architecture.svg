@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 760" width="1280" height="760" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" width="1200" height="720" role="img" aria-labelledby="title desc">
   <title id="title">Assured Arc v1.1.0 — End-to-End Agent &amp; Harness Data Flow</title>
-  <desc id="desc">Animated 6-stage data-flow diagram showing how a User Task flows through Web Surfing and MCP Research (taint-quarantined), Single-Writer Implementation (offline), Verifier and Critic checks, Deterministic Stop Hook and Nonce Scoreboard Gate, to a Verified Output.</desc>
+  <desc id="desc">Animated 6-stage data-flow diagram showing how a User Task flows through Web Surfing and MCP Research (taint-quarantined), Single-Writer Implementation (reuse + anti-bloat), Verifier and Critic checks, Deterministic Stop Hook and Nonce Scoreboard Gate, to a Verified Output.</desc>
   <defs>
     <linearGradient id="bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#070B14"/>
@@ -23,30 +23,30 @@
       <path d="M0,0 L10,4 L0,8 Z" fill="#A855F7"/>
     </marker>
     <style>
-      .title { font: 800 25px 'Segoe UI', Inter, system-ui, sans-serif; fill: #F8FAFC; letter-spacing: 0.4px; }
-      .subtitle { font: 600 13px 'Segoe UI', Inter, system-ui, sans-serif; fill: #94A3B8; letter-spacing: 0.3px; }
-      .zone { font: 800 11.5px 'Segoe UI', Inter, system-ui, sans-serif; fill: #64748B; letter-spacing: 2.2px; }
-      .card { fill: #111827; stroke: #334155; stroke-width: 1.8; rx: 14; }
-      .card-cyan { fill: #0C1B33; stroke: #0284C7; stroke-width: 2; rx: 14; }
-      .card-violet { fill: #1B1233; stroke: #9333EA; stroke-width: 2; rx: 14; }
-      .card-amber { fill: #26190A; stroke: #D97706; stroke-width: 2; rx: 14; }
-      .card-emerald { fill: #07221B; stroke: #059669; stroke-width: 2; rx: 14; }
-      .card-rose { fill: #28101B; stroke: #E11D48; stroke-width: 2; rx: 14; }
-      .card-slate { fill: #162032; stroke: #475569; stroke-width: 1.6; rx: 10; }
-      .step-num { font: 800 13px 'Cascadia Code', Consolas, monospace; fill: #F8FAFC; }
-      .h1 { font: 800 20px 'Segoe UI', Inter, system-ui, sans-serif; fill: #F8FAFC; }
-      .h2 { font: 700 15px 'Segoe UI', Inter, system-ui, sans-serif; fill: #E2E8F0; }
-      .body { font: 600 13px 'Segoe UI', Inter, system-ui, sans-serif; fill: #CBD5E1; }
-      .muted { font: 600 11.5px 'Segoe UI', Inter, system-ui, sans-serif; fill: #94A3B8; }
-      .mono { font: 700 11.5px 'Cascadia Code', Consolas, monospace; fill: #38BDF8; }
-      .mono-amber { font: 700 11.5px 'Cascadia Code', Consolas, monospace; fill: #FBBF24; }
-      .mono-emerald { font: 700 11.5px 'Cascadia Code', Consolas, monospace; fill: #34D399; }
-      .mono-rose { font: 700 11.5px 'Cascadia Code', Consolas, monospace; fill: #FB7185; }
-      .mono-violet { font: 700 11.5px 'Cascadia Code', Consolas, monospace; fill: #C084FC; }
-      .flow { fill: none; stroke: #38BDF8; stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; marker-end: url(#arrow-cyan); }
-      .flow-blue { fill: none; stroke: #10B981; stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; marker-end: url(#arrow-emerald); }
-      .flow-rust { fill: none; stroke: #F59E0B; stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; marker-end: url(#arrow-amber); }
-      .route { fill: none; stroke: #A855F7; stroke-width: 3.2; stroke-dasharray: 8 5; stroke-linecap: round; stroke-linejoin: round; marker-end: url(#arrow-violet); }
+      .title { font: 800 30px 'Segoe UI', Inter, system-ui, sans-serif; fill: #F8FAFC; letter-spacing: 0.4px; }
+      .subtitle { font: 700 15px 'Segoe UI', Inter, system-ui, sans-serif; fill: #E2E8F0; letter-spacing: 0.3px; }
+      .zone { font: 800 14px 'Segoe UI', Inter, system-ui, sans-serif; fill: #94A3B8; letter-spacing: 1.8px; }
+      .card { fill: #111827; stroke: #334155; stroke-width: 2; rx: 14; }
+      .card-cyan { fill: #0C1B33; stroke: #0284C7; stroke-width: 2.2; rx: 14; }
+      .card-violet { fill: #1B1233; stroke: #9333EA; stroke-width: 2.2; rx: 14; }
+      .card-amber { fill: #26190A; stroke: #D97706; stroke-width: 2.2; rx: 14; }
+      .card-emerald { fill: #07221B; stroke: #059669; stroke-width: 2.2; rx: 14; }
+      .card-rose { fill: #28101B; stroke: #E11D48; stroke-width: 2.2; rx: 14; }
+      .card-slate { fill: #162032; stroke: #475569; stroke-width: 1.8; rx: 10; }
+      .step-num { font: 800 14px 'Cascadia Code', Consolas, monospace; fill: #F8FAFC; }
+      .h1 { font: 800 22px 'Segoe UI', Inter, system-ui, sans-serif; fill: #F8FAFC; }
+      .h2 { font: 800 17px 'Segoe UI', Inter, system-ui, sans-serif; fill: #F8FAFC; }
+      .body { font: 700 15.5px 'Segoe UI', Inter, system-ui, sans-serif; fill: #E2E8F0; }
+      .muted { font: 700 14.5px 'Segoe UI', Inter, system-ui, sans-serif; fill: #CBD5E1; }
+      .mono { font: 700 15px 'Cascadia Code', Consolas, monospace; fill: #38BDF8; }
+      .mono-amber { font: 700 15px 'Cascadia Code', Consolas, monospace; fill: #FBBF24; }
+      .mono-emerald { font: 700 15px 'Cascadia Code', Consolas, monospace; fill: #34D399; }
+      .mono-rose { font: 700 15px 'Cascadia Code', Consolas, monospace; fill: #FB7185; }
+      .mono-violet { font: 700 15px 'Cascadia Code', Consolas, monospace; fill: #C084FC; }
+      .flow { fill: none; stroke: #38BDF8; stroke-width: 3.4; stroke-linecap: round; stroke-linejoin: round; marker-end: url(#arrow-cyan); }
+      .flow-blue { fill: none; stroke: #10B981; stroke-width: 3.4; stroke-linecap: round; stroke-linejoin: round; marker-end: url(#arrow-emerald); }
+      .flow-rust { fill: none; stroke: #F59E0B; stroke-width: 3.4; stroke-linecap: round; stroke-linejoin: round; marker-end: url(#arrow-amber); }
+      .route { fill: none; stroke: #A855F7; stroke-width: 3.4; stroke-dasharray: 8 5; stroke-linecap: round; stroke-linejoin: round; marker-end: url(#arrow-violet); }
       .pulse-cyan { fill: #38BDF8; stroke: #F8FAFC; stroke-width: 2; }
       .pulse-amber { fill: #F59E0B; stroke: #F8FAFC; stroke-width: 2; }
       .pulse-emerald { fill: #10B981; stroke: #F8FAFC; stroke-width: 2; }
@@ -54,111 +54,111 @@
     </style>
   </defs>
 
-  <rect width="1280" height="760" fill="url(#bg-grad)"/>
-  <rect width="1280" height="760" fill="url(#grid)"/>
+  <rect width="1200" height="720" fill="url(#bg-grad)"/>
+  <rect width="1200" height="720" fill="url(#grid)"/>
 
   <!-- HEADER -->
-  <rect x="28" y="24" width="1224" height="68" rx="14" fill="#111827" stroke="#334155" stroke-width="1.8"/>
-  <text x="52" y="54" class="title">AGENT + HARNESS DATA FLOW</text>
-  <text x="52" y="76" class="subtitle">6-STAGE GOVERNED PIPELINE · LIVE WEB RESEARCH ISOLATION · NONCE SCOREBOARD RECEIPT</text>
+  <rect x="24" y="18" width="1152" height="72" rx="14" fill="#111827" stroke="#334155" stroke-width="2"/>
+  <text x="46" y="50" class="title">AGENT + HARNESS DATA FLOW</text>
+  <text x="46" y="74" class="subtitle">6-STAGE PIPELINE · TAINT-QUARANTINED WEB · NONCE SCOREBOARD</text>
 
-  <rect x="752" y="38" width="160" height="38" rx="19" fill="#1B1233" stroke="#9333EA" stroke-width="1.5"/>
-  <text x="832" y="61" text-anchor="middle" class="mono-violet">WEB QUARANTINED</text>
+  <rect x="670" y="34" width="166" height="40" rx="20" fill="#1B1233" stroke="#9333EA" stroke-width="1.8"/>
+  <text x="753" y="59" text-anchor="middle" class="mono-violet">WEB ISOLATED</text>
 
-  <rect x="926" y="38" width="148" height="38" rx="19" fill="#26190A" stroke="#D97706" stroke-width="1.5"/>
-  <text x="1000" y="61" text-anchor="middle" class="mono-amber">OFFLINE WRITER</text>
+  <rect x="848" y="34" width="154" height="40" rx="20" fill="#26190A" stroke="#D97706" stroke-width="1.8"/>
+  <text x="925" y="59" text-anchor="middle" class="mono-amber">REUSE WRITER</text>
 
-  <rect x="1088" y="38" width="146" height="38" rx="19" fill="#07221B" stroke="#059669" stroke-width="1.5"/>
-  <text x="1161" y="61" text-anchor="middle" class="mono-emerald">NONCE VERIFIED</text>
+  <rect x="1014" y="34" width="144" height="40" rx="20" fill="#07221B" stroke="#059669" stroke-width="1.8"/>
+  <text x="1086" y="59" text-anchor="middle" class="mono-emerald">NONCE GATE</text>
 
   <!-- TOP ROW: STAGES 1 -> 2 -> 3 -->
-  <text x="40" y="122" class="zone">FORWARD EXECUTION PIPELINE (STAGES 1 – 3)</text>
+  <text x="32" y="116" class="zone">FORWARD EXECUTION PIPELINE (STAGES 1 – 3)</text>
 
   <!-- STAGE 1 -->
-  <rect x="36" y="138" width="356" height="236" class="card-cyan"/>
-  <rect x="58" y="160" width="90" height="28" rx="14" fill="#0284C7"/>
-  <text x="103" y="179" text-anchor="middle" class="step-num">STAGE 1</text>
-  <text x="162" y="180" class="h1">User Task &amp; Contract</text>
-  <text x="58" y="216" class="body">• Orchestrator builds acceptance contract</text>
-  <text x="58" y="242" class="body">• Lazy router selects ≤ 3 of 28 skills</text>
-  <text x="58" y="268" class="body">• Scout maps local repo files (read-only)</text>
-  <rect x="58" y="294" width="312" height="56" class="card-slate"/>
-  <text x="214" y="318" text-anchor="middle" class="mono">config/agent-contract.json</text>
-  <text x="214" y="338" text-anchor="middle" class="muted">Depth = 1 · Max 3 Parallel Workers</text>
+  <rect x="24" y="130" width="348" height="232" class="card-cyan"/>
+  <rect x="44" y="150" width="92" height="30" rx="15" fill="#0284C7"/>
+  <text x="90" y="170" text-anchor="middle" class="step-num">STAGE 1</text>
+  <text x="150" y="172" class="h1">Task &amp; Contract</text>
+  <text x="44" y="208" class="body">• Restate acceptance criteria</text>
+  <text x="44" y="236" class="body">• Route ≤ 3 of 29 skills</text>
+  <text x="44" y="264" class="body">• Scout maps reusable modules</text>
+  <rect x="44" y="286" width="308" height="58" class="card-slate"/>
+  <text x="198" y="310" text-anchor="middle" class="mono">agent-contract.json</text>
+  <text x="198" y="332" text-anchor="middle" class="muted">Depth = 1 · Max 3 Workers</text>
 
   <!-- STAGE 2 -->
-  <rect x="462" y="138" width="356" height="236" class="card-violet"/>
-  <rect x="484" y="160" width="90" height="28" rx="14" fill="#9333EA"/>
-  <text x="529" y="179" text-anchor="middle" class="step-num">STAGE 2</text>
-  <text x="588" y="180" class="h1">Web &amp; MCP Research</text>
-  <text x="484" y="216" class="body">• Live web surfing (WebSearch, WebFetch)</text>
-  <text x="484" y="242" class="body">• Context7 docs &amp; arXiv paper retrieval</text>
-  <text x="484" y="268" class="body">• Cited facts extracted; instructions stripped</text>
-  <rect x="484" y="294" width="312" height="56" class="card-slate"/>
-  <text x="640" y="318" text-anchor="middle" class="mono-violet">assured-arc-web-research</text>
-  <text x="640" y="338" text-anchor="middle" class="muted">Tainted data cannot edit or route skills</text>
+  <rect x="426" y="130" width="348" height="232" class="card-violet"/>
+  <rect x="446" y="150" width="92" height="30" rx="15" fill="#9333EA"/>
+  <text x="492" y="170" text-anchor="middle" class="step-num">STAGE 2</text>
+  <text x="552" y="172" class="h1">Web &amp; MCP Research</text>
+  <text x="446" y="208" class="body">• Live WebSearch &amp; WebFetch</text>
+  <text x="446" y="236" class="body">• Context7 &amp; arXiv retrieval</text>
+  <text x="446" y="264" class="body">• Extract cited facts only</text>
+  <rect x="446" y="286" width="308" height="58" class="card-slate"/>
+  <text x="600" y="310" text-anchor="middle" class="mono-violet">assured-arc-web-research</text>
+  <text x="600" y="332" text-anchor="middle" class="muted">Untrusted data quarantined</text>
 
   <!-- STAGE 3 -->
-  <rect x="888" y="138" width="356" height="236" class="card-amber"/>
-  <rect x="910" y="160" width="90" height="28" rx="14" fill="#D97706"/>
-  <text x="955" y="179" text-anchor="middle" class="step-num">STAGE 3</text>
-  <text x="1014" y="180" class="h1">Single-Writer Edit</text>
-  <text x="910" y="216" class="body">• Implementer receives sanitized brief</text>
-  <text x="910" y="242" class="body">• Offline: no web, no MCP, no shell exec</text>
-  <text x="910" y="268" class="body">• Human gate blocks .github/* &amp; config/*</text>
-  <rect x="910" y="294" width="312" height="56" class="card-slate"/>
-  <text x="1066" y="318" text-anchor="middle" class="mono-amber">PostToolUse: pendingVerification = true</text>
-  <text x="1066" y="338" text-anchor="middle" class="muted">Mints fresh 32-hex verificationNonce</text>
+  <rect x="828" y="130" width="348" height="232" class="card-amber"/>
+  <rect x="848" y="150" width="92" height="30" rx="15" fill="#D97706"/>
+  <text x="894" y="170" text-anchor="middle" class="step-num">STAGE 3</text>
+  <text x="954" y="172" class="h1">1-Writer Edit</text>
+  <text x="848" y="208" class="body">• Reuse existing repo modules</text>
+  <text x="848" y="236" class="body">• Offline: no web/MCP/shell</text>
+  <text x="848" y="264" class="body">• Clean dead code &amp; temp files</text>
+  <rect x="848" y="286" width="308" height="58" class="card-slate"/>
+  <text x="1002" y="310" text-anchor="middle" class="mono-amber">pendingVerification = true</text>
+  <text x="1002" y="332" text-anchor="middle" class="muted">Mints 32-hex nonce on Stop</text>
 
   <!-- BOTTOM ROW: STAGES 4 -> 5 -> 6 -->
-  <text x="40" y="428" class="zone">VERIFICATION &amp; RELEASE PIPELINE (STAGES 4 – 6)</text>
+  <text x="32" y="404" class="zone">VERIFICATION &amp; RELEASE PIPELINE (STAGES 4 – 6)</text>
 
   <!-- STAGE 4 -->
-  <rect x="36" y="444" width="356" height="236" class="card"/>
-  <rect x="58" y="466" width="90" height="28" rx="14" fill="#475569"/>
-  <text x="103" y="485" text-anchor="middle" class="step-num">STAGE 4</text>
-  <text x="162" y="486" class="h1">Verifier &amp; Critic</text>
-  <text x="58" y="522" class="body">• Verifier runs focused local test suites</text>
-  <text x="58" y="548" class="body">• Critic checks security &amp; regression risk</text>
-  <text x="58" y="574" class="body">• Up to 2 evidence-driven repair loops</text>
-  <rect x="58" y="600" width="312" height="56" class="card-slate"/>
-  <text x="214" y="624" text-anchor="middle" class="mono">Read + Execute Only (No Edit)</text>
-  <text x="214" y="644" text-anchor="middle" class="muted">Cannot self-mint verification receipt</text>
+  <rect x="24" y="418" width="348" height="232" class="card"/>
+  <rect x="44" y="438" width="92" height="30" rx="15" fill="#475569"/>
+  <text x="90" y="458" text-anchor="middle" class="step-num">STAGE 4</text>
+  <text x="150" y="460" class="h1">Verifier &amp; Critic</text>
+  <text x="44" y="496" class="body">• Verifier runs focused tests</text>
+  <text x="44" y="524" class="body">• Critic checks bloat &amp; risk</text>
+  <text x="44" y="552" class="body">• Up to 2 repair iterations</text>
+  <rect x="44" y="574" width="308" height="58" class="card-slate"/>
+  <text x="198" y="598" text-anchor="middle" class="mono">Read + Execute (No Edit)</text>
+  <text x="198" y="620" text-anchor="middle" class="muted">Cannot self-mint receipts</text>
 
   <!-- STAGE 5 -->
-  <rect x="462" y="444" width="356" height="236" class="card-rose"/>
-  <rect x="484" y="466" width="90" height="28" rx="14" fill="#E11D48"/>
-  <text x="529" y="485" text-anchor="middle" class="step-num">STAGE 5</text>
-  <text x="588" y="486" class="h1">Stop Hook Scoreboard</text>
-  <text x="484" y="522" class="body">• Stop hook intercepts session completion</text>
-  <text x="484" y="548" class="body">• Runs external scripts/scoreboard.py</text>
-  <text x="484" y="574" class="body">• Verifies session + 32-hex nonce match</text>
-  <rect x="484" y="600" width="312" height="56" class="card-slate"/>
-  <text x="640" y="624" text-anchor="middle" class="mono-rose">selfScoreAllowed = false</text>
-  <text x="640" y="644" text-anchor="middle" class="muted">Rejects model-written receipts</text>
+  <rect x="426" y="418" width="348" height="232" class="card-rose"/>
+  <rect x="446" y="438" width="92" height="30" rx="15" fill="#E11D48"/>
+  <text x="492" y="458" text-anchor="middle" class="step-num">STAGE 5</text>
+  <text x="552" y="460" class="h1">Stop Scoreboard</text>
+  <text x="446" y="496" class="body">• Stop hook intercepts exit</text>
+  <text x="446" y="524" class="body">• Runs scripts/scoreboard.py</text>
+  <text x="446" y="552" class="body">• Verifies 32-hex nonce + clean</text>
+  <rect x="446" y="574" width="308" height="58" class="card-slate"/>
+  <text x="600" y="598" text-anchor="middle" class="mono-rose">selfScoreAllowed = false</text>
+  <text x="600" y="620" text-anchor="middle" class="muted">Rejects model-forged receipts</text>
 
   <!-- STAGE 6 -->
-  <rect x="888" y="444" width="356" height="236" class="card-emerald"/>
-  <rect x="910" y="466" width="90" height="28" rx="14" fill="#059669"/>
-  <text x="955" y="485" text-anchor="middle" class="step-num">STAGE 6</text>
-  <text x="1014" y="486" class="h1">Verified Output</text>
-  <text x="910" y="522" class="body">• Clears pendingVerification lock</text>
-  <text x="910" y="548" class="body">• Writes redacted metadata run receipt</text>
-  <text x="910" y="574" class="body">• Returns verified result + citations</text>
-  <rect x="910" y="600" width="312" height="56" class="card-slate"/>
-  <text x="1066" y="624" text-anchor="middle" class="mono-emerald">completionStatus = complete</text>
-  <text x="1066" y="644" text-anchor="middle" class="muted">Zero prompt, secret, or path leakage</text>
+  <rect x="828" y="418" width="348" height="232" class="card-emerald"/>
+  <rect x="848" y="438" width="92" height="30" rx="15" fill="#059669"/>
+  <text x="894" y="458" text-anchor="middle" class="step-num">STAGE 6</text>
+  <text x="954" y="460" class="h1">Verified Output</text>
+  <text x="848" y="496" class="body">• Clears verification lock</text>
+  <text x="848" y="524" class="body">• Writes zero-PII run receipt</text>
+  <text x="848" y="552" class="body">• Delivers result + citations</text>
+  <rect x="848" y="574" width="308" height="58" class="card-slate"/>
+  <text x="1002" y="598" text-anchor="middle" class="mono-emerald">completionStatus = complete</text>
+  <text x="1002" y="620" text-anchor="middle" class="muted">Zero prompt or secret leakage</text>
 
   <!-- FOOTER LEGEND -->
-  <rect x="36" y="698" width="1208" height="40" rx="10" fill="#111827" stroke="#334155" stroke-width="1.5"/>
-  <text x="640" y="723" text-anchor="middle" class="body">TRUST BOUNDARY: External Web/MCP data (Stage 2) is sanitized before Single-Writer Edit (Stage 3) and verified by External Scoreboard (Stage 5).</text>
+  <rect x="24" y="664" width="1152" height="38" rx="10" fill="#111827" stroke="#334155" stroke-width="1.8"/>
+  <text x="600" y="689" text-anchor="middle" class="body">TRUST BOUNDARY: Web/MCP data (Stage 2) is sanitized before 1-Writer Edit (Stage 3) and verified by Nonce Scoreboard (Stage 5).</text>
 
   <!-- CAUSAL CONNECTOR PATHS (Animated) -->
-  <path id="flow-stage1-stage2" data-motion-intent="causality: user task and contract trigger web and MCP research" d="M 392 256 L 462 256" class="route"/>
-  <path id="flow-stage2-stage3" data-motion-intent="handoff: sanitized research evidence feeds single-writer implementer" d="M 818 256 L 888 256" class="flow-rust"/>
-  <path id="flow-stage3-stage4" data-motion-intent="progress: writer mutation triggers independent verifier and critic" d="M 1066 374 L 1066 406 L 214 406 L 214 444" class="flow"/>
-  <path id="flow-stage4-stage5" data-motion-intent="handoff: verified work enters Stop hook scoreboard gate" d="M 392 562 L 462 562" class="flow-rust"/>
-  <path id="flow-stage5-stage6" data-motion-intent="verification: nonce-matched scoreboard receipt releases verified output" d="M 818 562 L 888 562" class="flow-blue"/>
+  <path id="flow-stage1-stage2" data-motion-intent="causality: user task and contract trigger web and MCP research" d="M 372 246 L 426 246" class="route"/>
+  <path id="flow-stage2-stage3" data-motion-intent="handoff: sanitized research evidence feeds single-writer implementer" d="M 774 246 L 828 246" class="flow-rust"/>
+  <path id="flow-stage3-stage4" data-motion-intent="progress: writer mutation triggers independent verifier and critic" d="M 1002 362 L 1002 390 L 198 390 L 198 418" class="flow"/>
+  <path id="flow-stage4-stage5" data-motion-intent="handoff: verified work enters Stop hook scoreboard gate" d="M 372 534 L 426 534" class="flow-rust"/>
+  <path id="flow-stage5-stage6" data-motion-intent="verification: nonce-matched scoreboard receipt releases verified output" d="M 774 534 L 828 534" class="flow-blue"/>
 
   <g>
     <circle r="9" fill="#A855F7" opacity="0.3"/>

@@ -29,23 +29,31 @@ APPROVAL_PATHS = (
     "/library/application support/code/user/",
     "/.config/code/user/",
 )
-HARD_DENY_PATTERNS = (
-    r"\brm\s+-rf\s+(?:/|~|\$home)(?:\s|$)",
-    r"\b(?:rd|rmdir|del)\s+/[sq].*(?:[a-z]:\\|%userprofile%)",
-    r"\bremove-item\b.*(?:[a-z]:\\|\$home|~).*-recurse.*-force",
-    r"\b(?:format|diskpart|shutdown|reboot)\b",
-    r"\bpowershell(?:\.exe)?\b.*-encodedcommand\b",
-    r"\breg\s+delete\b",
+HARD_DENY_PATTERNS = tuple(
+    re.compile(pattern, flags=re.IGNORECASE)
+    for pattern in (
+        r"\brm\s+-rf\s+(?:/|~|\$home)(?:\s|$)",
+        r"\b(?:rd|rmdir|del)\s+/[sq].*(?:[a-z]:\\|%userprofile%)",
+        r"\bremove-item\b.*(?:[a-z]:\\|\$home|~).*-recurse.*-force",
+        r"\b(?:format|diskpart|shutdown|reboot)\b",
+        r"\bpowershell(?:\.exe)?\b.*-encodedcommand\b",
+        r"\breg\s+delete\b",
+    )
 )
-ASK_PATTERNS = (
-    r"\bgit\s+(?:push|reset\s+--hard|clean\s+-[^\s]*f)",
-    r"\b(?:npm|pnpm|yarn|pip|uv)\s+(?:install|add|publish)\b",
-    r"\b(?:docker\s+push|kubectl\s+(?:apply|delete)|terraform\s+(?:apply|destroy))\b",
-    r"\b(?:az|aws|gcloud)\b.*\b(?:deploy|delete|publish)\b",
-    r"\bcode(?:\.cmd)?\s+--install-extension\b",
-    r"\b(?:rm\s+-rf|remove-item\b.*-recurse|del\s+/[sq]|rmdir\s+/[sq])\b",
-    r"\binstall[/\\]assured-arc\.(?:ps1|sh)\b",
+ASK_PATTERNS = tuple(
+    re.compile(pattern, flags=re.IGNORECASE)
+    for pattern in (
+        r"\bgit\s+(?:push|reset\s+--hard|clean\s+-[^\s]*f)",
+        r"\b(?:npm|pnpm|yarn|pip|uv)\s+(?:install|add|publish)\b",
+        r"\b(?:docker\s+push|kubectl\s+(?:apply|delete)|terraform\s+(?:apply|destroy))\b",
+        r"\b(?:az|aws|gcloud)\b.*\b(?:deploy|delete|publish)\b",
+        r"\bcode(?:\.cmd)?\s+--install-extension\b",
+        r"\b(?:rm\s+-rf|remove-item\b.*-recurse|del\s+/[sq]|rmdir\s+/[sq])\b",
+        r"\binstall[/\\]assured-arc\.(?:ps1|sh)\b",
+    )
 )
+MULTI_SLASH_RE = re.compile(r"/+")
+NON_ALNUM_RE = re.compile(r"[^a-z0-9]+")
 WRITE_TOOLS = {
     "apply_patch",
     "create",
@@ -121,7 +129,7 @@ def _opaque(value: str) -> str:
 
 def _normalize(value: Any) -> str:
     serialized = json.dumps(value, ensure_ascii=True, separators=(",", ":")).replace("\\", "/").lower()
-    return re.sub(r"/+", "/", serialized)
+    return MULTI_SLASH_RE.sub("/", serialized)
 
 
 def _output(value: dict[str, Any]) -> None:
@@ -130,9 +138,9 @@ def _output(value: dict[str, Any]) -> None:
 
 def _worker_name(value: Any, allowed_workers: set[str]) -> str:
     candidate = str(value or "")
-    normalized = re.sub(r"[^a-z0-9]+", "-", candidate.lower()).strip("-")
+    normalized = NON_ALNUM_RE.sub("-", candidate.lower()).strip("-")
     for worker in allowed_workers:
-        worker_normalized = re.sub(r"[^a-z0-9]+", "-", worker.lower()).strip("-")
+        worker_normalized = NON_ALNUM_RE.sub("-", worker.lower()).strip("-")
         short_normalized = worker_normalized.removeprefix("assured-arc-disposable-")
         if normalized in {worker_normalized, short_normalized, f"assured-arc-disposable-{short_normalized}"}:
             return worker
@@ -189,10 +197,22 @@ def _release_pending_worker(state: dict[str, Any], agent_type: str) -> None:
             return
 
 
+def _resolve_capability(tool_name: str, tool_policy: dict[str, Any]) -> str:
+    capability = str(tool_policy.get("tools", {}).get(tool_name, ""))
+    if capability:
+        return capability
+    lowered_name = tool_name.lower()
+    for item in tool_policy.get("prefixes", []):
+        prefix = str(item.get("prefix", "")).lower()
+        if prefix and lowered_name.startswith(prefix):
+            return str(item.get("capability", ""))
+    return ""
+
+
 def _is_write(tool_name: str, tool_policy: dict[str, Any]) -> bool:
     if tool_name in WRITE_TOOLS:
         return True
-    return str(tool_policy.get("tools", {}).get(tool_name, "")) == "write"
+    return _resolve_capability(tool_name, tool_policy) == "write"
 
 
 def _scope_text(tool_input: Any) -> str:
@@ -210,7 +230,7 @@ def _human_gate_decision(tool_name: str, tool_input: Any, tool_policy: dict[str,
     if os.environ.get("ASSURED_ARC_HUMAN_GATE", "").strip().lower() == "open":
         return None, None
     scope = _scope_text(tool_input)
-    capability = str(tool_policy.get("tools", {}).get(tool_name, ""))
+    capability = _resolve_capability(tool_name, tool_policy)
     mutating = _is_write(tool_name, tool_policy) or capability in {
         "execute",
         "execute-network",
@@ -397,14 +417,9 @@ def _tool_decision(
         return "deny", f"Harness tool-call budget exceeded ({maximum})."
 
     lowered_name = tool_name.lower()
-    capability = str(tool_policy.get("tools", {}).get(tool_name, ""))
-    if not capability:
-        for item in tool_policy.get("prefixes", []):
-            if lowered_name.startswith(str(item.get("prefix", "")).lower()):
-                capability = str(item.get("capability", ""))
-                break
+    capability = _resolve_capability(tool_name, tool_policy)
     configured_decision = str(tool_policy.get("decisions", {}).get(capability, ""))
-    normalized_roots = [re.sub(r"/+", "/", str(Path(root).expanduser()).replace("\\", "/").lower()).rstrip("/") for root in protected_roots]
+    normalized_roots = [MULTI_SLASH_RE.sub("/", str(Path(root).expanduser()).replace("\\", "/").lower()).rstrip("/") for root in protected_roots]
     protected = any(root in payload or (root + "/") in payload for root in normalized_roots)
     read_only = capability in {"read", "read-network", "analysis"}
     write_tool = capability == "write"
@@ -414,9 +429,9 @@ def _tool_decision(
     if write_tool and any(marker in payload for marker in APPROVAL_PATHS):
         return "ask", "Changing global VS Code or Copilot CLI configuration requires exact user approval."
 
-    if execute_tool and any(re.search(pattern, payload, flags=re.IGNORECASE) for pattern in HARD_DENY_PATTERNS):
+    if execute_tool and any(pattern.search(payload) for pattern in HARD_DENY_PATTERNS):
         return "deny", "Dangerous system-level operation blocked by the global harness policy."
-    if execute_tool and any(re.search(pattern, payload, flags=re.IGNORECASE) for pattern in ASK_PATTERNS):
+    if execute_tool and any(pattern.search(payload) for pattern in ASK_PATTERNS):
         return "ask", "This operation is destructive, global, networked, or changes dependencies and requires exact user approval."
     if not read_only and any(word in lowered_name for word in ("install", "publish", "deploy")):
         return "ask", "This global or external operation requires exact user approval."

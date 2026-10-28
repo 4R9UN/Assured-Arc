@@ -13,7 +13,7 @@ Routes a request to the smallest useful set of installed skills. This skill is i
 
 1. Read `agent-harness.json` beside the installed package customizations and merge every available compact catalog it lists by skill ID.
 2. Classify the request by outcome: plan, implement, debug, test, review, document, secure, optimize, deliver, configure MCP, or manage knowledge.
-3. Select at most three domain skills. Add `assured-arc-development-quality` for every code changing task.
+3. Select at most three domain skills. Add `assured-arc-development-quality` and `assured-arc-codebase-reuse-hygiene` for every code changing task (or run `python scripts/route_skills.py "<objective>" --json` for deterministic catalog scoring).
 4. Load full skill instructions only for the selected skills.
 5. Re-route only when evidence shows the original classification was wrong.
 
