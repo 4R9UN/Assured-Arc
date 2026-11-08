@@ -4,11 +4,11 @@
 
 | Platform | Required | Optional |
 | --- | --- | --- |
-| Windows | VS Code, PowerShell, Node.js 18+ with npx, uv with Python 3.11+ | Copilot CLI for personal CLI installation, Obsidian for vault visuals |
+| Windows | VS Code, PowerShell 7 (`pwsh`), Node.js 18+ with npx, uv with Python 3.11+ | Copilot CLI for personal CLI installation, Obsidian for vault visuals |
 | macOS | VS Code, Bash, Python 3, Node.js 18+ with npx, uv with Python 3.11+ | Copilot CLI, Obsidian |
 | Linux | VS Code, Bash, Python 3, Node.js 18+ with npx, uv with Python 3.11+ | Copilot CLI, Obsidian |
 
-The installer needs the `code` command only when extension installation is enabled. You can install agents, skills, instructions, MCP tools, and the vault template with extensions skipped.
+Git is required to clone the repository. Python 3.11+ is required for Claude adapter rendering, and the installer needs the `code` command only when extension installation is enabled. Node.js, `npx`, and `uv` are required only when MCP installation is enabled. You can install agents, skills, instructions, and the vault template with extensions and MCP skipped.
 
 ## Safe first run
 

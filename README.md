@@ -181,54 +181,73 @@ flowchart LR
 
 ### Prerequisites
 
-| Platform | Required for the default installation |
+| Platform | Required for the default `Full` installation |
 | --- | --- |
-| Windows | VS Code, PowerShell, Node.js 18 or newer with `npx`, `uv`, and Python 3.11 or newer |
+| Windows | VS Code, PowerShell 7 (`pwsh`), Node.js 18 or newer with `npx`, `uv`, and Python 3.11 or newer |
 | macOS or Linux | VS Code, Bash, Python 3, Node.js 18 or newer with `npx`, and `uv` with Python 3.11 or newer |
 
-The VS Code `code` command is required only when extension installation is enabled. Obsidian is optional because the generated vault remains standard Markdown.
+Git is required to clone the repository. Python 3.11 or newer is used to render the Claude adapters and the `code` command is used only when extension installation is enabled. Node.js, `npx`, and `uv` are required only when MCP installation is enabled. Obsidian is optional because the generated vault remains standard Markdown.
 
-Clone the repository, inspect the dry run, then run the installer.
+Clone the repository, inspect a dry run of the selected profile, and then run that same command without `-DryRun` or `--dry-run`. The dry run and real install must use the same profile and switches.
 
-### Windows
+### Windows: default installation
 
 ```powershell
-git clone https://github.com/<your-org>/assured-arc.git
-Set-Location assured-arc
+git clone https://github.com/4R9UN/Assured-Arc.git
+Set-Location Assured-Arc
 .\install.ps1 -DryRun
 .\install.ps1
-.\install.ps1 -InstallCopilotCli
 ```
 
-### macOS and Linux
+### Windows: personal Copilot CLI profile
+
+```powershell
+.\install.ps1 -Profile CopilotCli -DryRun
+.\install.ps1 -Profile CopilotCli
+```
+
+If VS Code extension installation or MCP prerequisites are not available, preview and install a minimal profile instead:
+
+```powershell
+.\install.ps1 -Profile Minimal -InstallCopilotCli -DryRun
+.\install.ps1 -Profile Minimal -InstallCopilotCli
+```
+
+### macOS and Linux: default installation
 
 ```bash
-git clone https://github.com/<your-org>/assured-arc.git
-cd assured-arc
+git clone https://github.com/4R9UN/Assured-Arc.git
+cd Assured-Arc
 bash install/assured-arc.sh --dry-run
 bash install/assured-arc.sh
-bash install/assured-arc.sh --install-copilot-cli
 ```
 
-The default install creates `~/.assured-arc` for state (`state.json`), backups, managed skills, hooks, scoreboard checks (`scoreboard.json`, `scoreboard.py`, `checks/approved_check.py`), rendered Claude Code adapters (`~/.assured-arc/claude`), the arXiv runtime, and the optional vault. `-InstallCopilotCli` or `--install-copilot-cli` additionally uses the native Copilot home, normally `~/.copilot`, for agents, instructions, user hooks, settings registration, and CLI MCP configuration. Existing VS Code and CLI settings and unrelated MCP entries are merged, not replaced.
+For a personal Copilot CLI profile, replace the last two lines with:
+
+```bash
+bash install/assured-arc.sh --profile CopilotCli --dry-run
+bash install/assured-arc.sh --profile CopilotCli
+```
+
+For a minimal personal CLI installation without extension or MCP prerequisites:
+
+```bash
+bash install/assured-arc.sh --profile Minimal --install-copilot-cli --dry-run
+bash install/assured-arc.sh --profile Minimal --install-copilot-cli
+```
+
+The `Full` profile creates `~/.assured-arc` for state (`state.json`), backups, managed skills, hooks, scoreboard checks (`scoreboard.json`, `scoreboard.py`, `checks/approved_check.py`), rendered Claude Code adapters (`~/.assured-arc/claude`), the arXiv runtime, and the vault. The `CopilotCli` profile uses the native Copilot home, normally `~/.copilot`, for agents, instructions, user hooks, settings registration, and CLI MCP configuration. Existing VS Code and CLI settings and unrelated MCP entries are merged, not replaced. See [Install profiles](docs/INSTALLATION.md#install-profiles) for the complete component matrix.
 
 ### Confirm installation
 
-After installation, restart or reload the selected hosts, then verify:
+After installation, restart or reload the selected hosts, then verify only the components included by the selected profile:
 
-1. **Assured Arc Orchestrator** appears in the agent picker.
-2. The **six** package prompts appear in the VS Code slash-command menu.
-3. Context7, Sequential Thinking, and arXiv appear under **MCP: List Servers**.
-4. The state file exists under `~/.assured-arc/state.json` and `pwsh -File install/doctor.ps1` (or `bash install/doctor.sh`) reports `PASS`.
-5. Rendered Claude Code adapters exist under `~/.assured-arc/claude/agents` and `~/.assured-arc/claude/settings.json` (as well as `.claude/` in the repository).
-6. Chat customization diagnostics show no errors for package agents, prompts, skills, or hooks.
-
-For Copilot CLI integration, also verify:
-
-1. Run `copilot --agent assured-arc-orchestrator` or select the agent with `/agent`.
-2. Run `copilot skill list` and confirm the packaged skills are listed from the managed directory.
-3. Run `copilot mcp list` and confirm Context7, Sequential Thinking, and arXiv when MCP installation is enabled.
-4. Restart Copilot CLI after hook or agent changes because those files load at session start.
+| Scope | Verification |
+| --- | --- |
+| Every profile | The state file exists at `~/.assured-arc/state.json`; `.\install\doctor.ps1` on Windows or `bash install/doctor.sh` on macOS/Linux reports `PASS`; rendered Claude adapters exist under `~/.assured-arc/claude`. |
+| VS Code | **Assured Arc Orchestrator** appears in the agent picker, the six package prompts appear in the slash-command menu, and Chat customization diagnostics show no package errors. |
+| Copilot CLI | Restart the CLI after agent or hook changes, select `assured-arc-orchestrator` with `/agent`, and run `copilot skill list` to confirm the packaged skills. |
+| MCP enabled | Context7, Sequential Thinking, and arXiv appear under **MCP: List Servers**; for personal CLI integration, confirm the same entries with `copilot mcp list`. |
 
 ## Installation options
 
