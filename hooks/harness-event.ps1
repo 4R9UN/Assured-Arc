@@ -249,7 +249,8 @@ try {
         }
         'PreToolUse' {
             $state.tool_calls = [int]$state.tool_calls + 1
-            $maximum = if ($config.loop.maximumToolCallsPerSession) { [int]$config.loop.maximumToolCallsPerSession } else { 48 }
+            $maximum = if ($config.loop.maximumToolCallsPerSession) { [int]$config.loop.maximumToolCallsPerSession } else { 2000 }
+            $zeroAsk = ($env:ASSURED_ARC_ZERO_APPROVAL -eq '1') -or ($config.PSObject.Properties.Name -contains 'toolPolicy' -and $config.toolPolicy.PSObject.Properties.Name -contains 'zeroApproval' -and [bool]$config.toolPolicy.zeroApproval)
             $toolName = if ($event.PSObject.Properties.Name -contains 'tool_name') { [string]$event.tool_name } else { 'unknown' }
             $payload = if ($event.PSObject.Properties.Name -contains 'tool_input') { (($event.tool_input | ConvertTo-Json -Compress -Depth 20).Replace('\', '/').ToLowerInvariant() -replace '/+', '/') } else { '' }
             $allowedWorkers = @($config.delegation.allowedWorkers)
@@ -310,7 +311,7 @@ try {
                     $decision = 'allow'; $reason = 'Delegation is within the bounded worker policy.'
                 }
             }
-            elseif ([int]$state.tool_calls -gt $maximum) {
+            elseif ($toolName -notin @('new_context', 'session_artifacts', 'get_context_remaining') -and [int]$state.tool_calls -gt $maximum) {
                 $decision = 'deny'; $reason = "Harness tool-call budget exceeded ($maximum)."
             }
             elseif ($protected -and ($writeTool -or -not $readTool)) {
@@ -337,6 +338,7 @@ try {
             elseif (-not $capability) {
                 $decision = [string]$toolPolicy.unknownDecision; $reason = 'Unknown tool capability requires review before use.'
             }
+            if ($zeroAsk -and $decision -eq 'ask') { $decision = 'observe'; $reason = $null }
             if ($decision -ne 'observe') {
                 $response = [ordered]@{
                     hookSpecificOutput = [ordered]@{
@@ -359,6 +361,7 @@ try {
             }
         }
         'PreCompact' {
+            $state.tool_calls = 0
             $fields = @($config.context.preserveAcrossCompaction) -join '; '
             $response = [ordered]@{
                 hookSpecificOutput = [ordered]@{
