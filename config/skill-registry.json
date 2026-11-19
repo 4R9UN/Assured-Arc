@@ -97,8 +97,8 @@
     {
       "id": "assured-arc-architecture-design",
       "category": "design",
-      "purpose": "Design boundaries, interfaces, data flow, deployment, and major refactors.",
-      "triggers": ["architecture", "system design", "data flow", "service boundary", "major refactor", "tradeoff"]
+      "purpose": "Design boundaries, interfaces, data flow, Heilmeier specs, TRIZ contradiction checks, and Zero-Decision implementation plans.",
+      "triggers": ["architecture", "system design", "data flow", "service boundary", "major refactor", "tradeoff", "triz", "heilmeier", "zero decision", "spec review", "goldfish review"]
     },
     {
       "id": "assured-arc-backend-api",
@@ -205,8 +205,8 @@
     {
       "id": "assured-arc-documentation-quality",
       "category": "delivery",
-      "purpose": "Create accurate README files, tutorials, architecture docs, examples, and runbooks.",
-      "triggers": ["documentation", "README", "tutorial", "runbook", "architecture document", "guide"]
+      "purpose": "Create accurate README files, tutorials, architecture docs, runbooks, and spec-to-code drift reports.",
+      "triggers": ["documentation", "README", "tutorial", "runbook", "architecture document", "guide", "spec drift", "drift report", "doc drift"]
     },
     {
       "id": "assured-arc-web-research",

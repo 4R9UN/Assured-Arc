@@ -11,11 +11,13 @@ Produces a minimum viable architecture grounded in the existing repository and e
 
 ## Workflow
 
-1. Identify actors, outcomes, constraints, trust boundaries, and scale assumptions.
-2. Inspect existing components and conventions before proposing new ones.
-3. Define component responsibilities, data flow, failure boundaries, and public interfaces.
-4. Compare the simplest viable approach with one meaningful alternative.
-5. Record decisions, risks, verification strategy, and deferred concerns.
+1. **Heilmeier & Boundary Clarity**: State the plain-English objective, current limits, actors, trust boundaries, scale assumptions, risks, and falsifiable success checks before touching code.
+2. **Reuse-First Inspection**: Map existing repository components and conventions before proposing any new module, service, or dependency.
+3. **Alternatives & TRIZ Contradiction Check**:
+   - **Alternatives Rule**: Evaluate at least one viable alternative and record the concrete technical, cost, or complexity reason it was rejected.
+   - **TRIZ False-Compromise Check**: When two goals conflict (for example latency vs. safety or extensibility vs. simplicity), test whether *Segmentation*, *Extraction* (hooks/sidecars), *Preliminary Action* (pre-indexing), *Inversion* (contract rendering), or *Cheap Dispensables* (stateless subagents) resolves the conflict, and state its **Secondary Operational Liability** explicitly (or record `"No false compromise detected"`).
+4. **Zero-Decision Implementation Readiness**: Define exact component responsibilities, schemas, error contracts, test cases, and an explicit **`Target Scope & File Boundary`** allowlist of repo-relative files so an implementer makes zero design guesses.
+5. **Independent Goldfish Review & Artifact Delivery**: Write multi-section specs to a workspace or artifact file (never dump walls of text in chat) and stress-test high-risk designs with a fresh zero-context critic (`include-custom-instructions: false`).
 
 ## Practical application
 

@@ -178,6 +178,8 @@ def validate_static_contracts() -> None:
         assert field(block, "disable-model-invocation") == "true"
         writer_count += int("edit" in tools)
     assert writer_count == 1
+    critic_block = frontmatter(ROOT / ".github/agents/assured-arc-disposable-critic.agent.md")
+    assert field(critic_block, "include-custom-instructions") == "false"
     assert "web" not in WORKERS["Assured Arc Disposable Implementer"]
     assert "execute" not in WORKERS["Assured Arc Disposable Implementer"]
     assert "edit" not in WORKERS["Assured Arc Disposable Researcher"]
@@ -298,6 +300,10 @@ def validate_static_contracts() -> None:
     assert routed_read["codeChange"] is False
     assert routed_read["mandatorySkills"] == []
     assert "assured-arc-web-research" in routed_read["domainSkills"]
+    routed_triz = route_skills_module.route_task("Run goldfish review with TRIZ and zero decision rule", code_change=False)
+    assert "assured-arc-architecture-design" in routed_triz["domainSkills"]
+    routed_drift = route_skills_module.route_task("Audit spec drift and generate a drift report", code_change=False)
+    assert "assured-arc-documentation-quality" in routed_drift["domainSkills"]
 
 def validate_python_hook() -> None:
     script = ROOT / "hooks/harness_event.py"
