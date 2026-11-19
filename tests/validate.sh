@@ -124,6 +124,7 @@ bash "${ROOT}/install/assured-arc.sh" --skip-mcp --skip-extensions --profile-roo
 [[ -f "${PROFILE}/state.json" ]]
 [[ -f "${COPILOT}/skills/assured-arc-development-quality/SKILL.md" ]]
 [[ -f "${COPILOT}/skill-registry.json" ]]
+[[ -f "${COPILOT}/route-skills.py" ]]
 [[ -f "${COPILOT}/agents/assured-arc-development.agent.md" ]]
 [[ -f "${COPILOT}/prompts/plan-implement-verify.prompt.md" ]]
 [[ -f "${COPILOT}/instructions/assured-arc-general-agent.instructions.md" ]]

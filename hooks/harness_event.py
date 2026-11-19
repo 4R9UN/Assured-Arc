@@ -139,12 +139,54 @@ def _output(value: dict[str, Any]) -> None:
 def _worker_name(value: Any, allowed_workers: set[str]) -> str:
     candidate = str(value or "")
     normalized = NON_ALNUM_RE.sub("-", candidate.lower()).strip("-")
+    if normalized.startswith("assured-arc-") and not normalized.startswith("assured-arc-disposable-"):
+        role_suffix = normalized.removeprefix("assured-arc-")
+        normalized = f"assured-arc-disposable-{role_suffix}"
     for worker in allowed_workers:
         worker_normalized = NON_ALNUM_RE.sub("-", worker.lower()).strip("-")
         short_normalized = worker_normalized.removeprefix("assured-arc-disposable-")
         if normalized in {worker_normalized, short_normalized, f"assured-arc-disposable-{short_normalized}"}:
             return worker
     return candidate
+
+
+DEFAULT_WORKER_CAPABILITIES: dict[str, set[str]] = {
+    "Assured Arc Disposable Scout": {"read", "analysis"},
+    "Assured Arc Disposable Researcher": {"read", "read-network", "analysis"},
+    "Assured Arc Disposable Implementer": {"read", "write", "analysis"},
+    "Assured Arc Disposable Verifier": {"read", "execute", "analysis"},
+    "Assured Arc Disposable Critic": {"read", "analysis"},
+}
+
+
+def _worker_capability_decision(
+    agent_type: str,
+    tool_name: str,
+    delegation: dict[str, Any],
+    tool_policy: dict[str, Any],
+) -> tuple[str | None, str | None]:
+    if not agent_type:
+        return None, None
+    allowed_workers = set(delegation.get("allowedWorkers", []))
+    canonical_worker = _worker_name(agent_type, allowed_workers)
+    if canonical_worker not in allowed_workers:
+        return None, None
+    capability = _resolve_capability(tool_name, tool_policy)
+    if not capability:
+        return "deny", f"Worker '{canonical_worker}' cannot invoke unclassified tool '{tool_name}'."
+    configured_map = delegation.get("workerCapabilities", {})
+    raw_allowed = configured_map.get(canonical_worker) if isinstance(configured_map, dict) else None
+    allowed_caps = (
+        {str(item) for item in raw_allowed}
+        if isinstance(raw_allowed, list) and raw_allowed
+        else DEFAULT_WORKER_CAPABILITIES.get(canonical_worker, {"read", "analysis"})
+    )
+    if capability not in allowed_caps:
+        return (
+            "deny",
+            f"Worker '{canonical_worker}' lacks '{capability}' capability under the CapScope role ceiling.",
+        )
+    return None, None
 
 
 def _normalize_event(event: dict[str, Any], host: str, allowed_workers: set[str]) -> tuple[dict[str, Any], str]:
@@ -625,14 +667,23 @@ def main() -> int:
                 if gated:
                     decision, reason = gated, gate_reason
                 else:
-                    decision, reason = _tool_decision(
+                    role_decision, role_reason = _worker_capability_decision(
+                        str(event.get("agent_type") or ""),
                         tool_name,
-                        _normalize(event.get("tool_input", {})),
-                        state["tool_calls"],
-                        int(loop.get("maximumToolCallsPerSession", 2000)),
-                        [str(root) for root in config.get("protectedRoots", [])],
+                        delegation,
                         tool_policy,
                     )
+                    if role_decision:
+                        decision, reason = role_decision, role_reason
+                    else:
+                        decision, reason = _tool_decision(
+                            tool_name,
+                            _normalize(event.get("tool_input", {})),
+                            state["tool_calls"],
+                            int(loop.get("maximumToolCallsPerSession", 2000)),
+                            [str(root) for root in config.get("protectedRoots", [])],
+                            tool_policy,
+                        )
             if advisory_only and decision in {"deny", "ask"}:
                 decision = "observe"
                 response = {

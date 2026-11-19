@@ -140,12 +140,41 @@ function Test-Pattern {
 function ConvertTo-WorkerName {
     param([string]$Value, [string[]]$AllowedWorkers)
     $normalized = ($Value.ToLowerInvariant() -replace '[^a-z0-9]+', '-').Trim('-')
+    if ($normalized.StartsWith('assured-arc-') -and -not $normalized.StartsWith('assured-arc-disposable-')) {
+        $normalized = 'assured-arc-disposable-' + $normalized.Substring('assured-arc-'.Length)
+    }
     foreach ($worker in $AllowedWorkers) {
         $workerNormalized = ($worker.ToLowerInvariant() -replace '[^a-z0-9]+', '-').Trim('-')
         $short = $workerNormalized -replace '^assured-arc-disposable-', ''
         if ($normalized -in @($workerNormalized, $short, "assured-arc-disposable-$short")) { return $worker }
     }
     return $Value
+}
+
+function Get-WorkerCapabilityDecision {
+    param([string]$AgentType, [string]$ToolName, [string]$Capability, $Delegation)
+    if (-not $AgentType) { return $null }
+    $allowedWorkers = @($Delegation.allowedWorkers)
+    $canonical = ConvertTo-WorkerName -Value $AgentType -AllowedWorkers $allowedWorkers
+    if ($allowedWorkers -notcontains $canonical) { return $null }
+    if (-not $Capability) {
+        return @{ decision = 'deny'; reason = "Worker '$canonical' cannot invoke unclassified tool '$ToolName'." }
+    }
+    $defaults = @{
+        'Assured Arc Disposable Scout' = @('read', 'analysis')
+        'Assured Arc Disposable Researcher' = @('read', 'read-network', 'analysis')
+        'Assured Arc Disposable Implementer' = @('read', 'write', 'analysis')
+        'Assured Arc Disposable Verifier' = @('read', 'execute', 'analysis')
+        'Assured Arc Disposable Critic' = @('read', 'analysis')
+    }
+    $allowedCaps = $defaults[$canonical]
+    if ($Delegation.PSObject.Properties.Name -contains 'workerCapabilities' -and $Delegation.workerCapabilities.PSObject.Properties[$canonical]) {
+        $allowedCaps = @($Delegation.workerCapabilities.$canonical | ForEach-Object { [string]$_ })
+    }
+    if ($allowedCaps -notcontains $Capability) {
+        return @{ decision = 'deny'; reason = "Worker '$canonical' lacks '$Capability' capability under the CapScope role ceiling." }
+    }
+    return $null
 }
 
 function ConvertTo-HostResponse {
@@ -387,6 +416,8 @@ try {
             foreach ($marker in $globalSettings) { if ($payload.Contains($marker)) { $globalConfiguration = $true; break } }
             $toolInput = if ($event.PSObject.Properties.Name -contains 'tool_input') { $event.tool_input } else { $null }
             $gate = if ($allowedWorkers -contains $taskAgent) { $null } else { Get-HumanGateDecision -ToolName $toolName -ToolInput $toolInput -ToolPolicy $toolPolicy }
+            $eventAgentType = if ($event.PSObject.Properties.Name -contains 'agent_type') { [string]$event.agent_type } else { '' }
+            $workerCapGate = if ($allowedWorkers -contains $taskAgent) { $null } else { Get-WorkerCapabilityDecision -AgentType $eventAgentType -ToolName $toolName -Capability $capability -Delegation $config.delegation }
             if ($allowedWorkers -contains $taskAgent) {
                 $maximumParallel = if ($config.delegation.maximumParallelWorkers) { [int]$config.delegation.maximumParallelWorkers } else { 3 }
                 $maximumInvocations = if ($config.delegation.maximumWorkerInvocationsPerSession) { [int]$config.delegation.maximumWorkerInvocationsPerSession } else { 7 }
@@ -406,6 +437,9 @@ try {
             }
             elseif ($gate) {
                 $decision = [string]$gate.decision; $reason = [string]$gate.reason
+            }
+            elseif ($workerCapGate) {
+                $decision = [string]$workerCapGate.decision; $reason = [string]$workerCapGate.reason
             }
             elseif ($exemptTools -notcontains $toolName.ToLowerInvariant() -and [int]$state.tool_calls -gt $maximum) {
                 $decision = 'deny'; $reason = "Harness tool-call budget exceeded ($maximum)."

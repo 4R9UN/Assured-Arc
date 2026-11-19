@@ -191,6 +191,7 @@ preflight_install_plan() {
   assert_no_symlink_path "${VSCODE_USER_DIR}/mcp.json"
   assert_no_symlink_path "$COPILOT_ROOT"
   assert_no_symlink_path "${COPILOT_ROOT}/skill-registry.json"
+  assert_no_symlink_path "${COPILOT_ROOT}/route-skills.py"
   assert_no_symlink_path "${COPILOT_ROOT}/agent-harness.json"
   assert_no_symlink_path "${COPILOT_ROOT}/tool-policy.json"
   assert_no_symlink_path "${COPILOT_ROOT}/hooks/agent-harness.json"
@@ -429,8 +430,10 @@ install_agent_harness() {
 import json, os, sys
 source, target, root, tool_policy, cli_root, install_cli = sys.argv[1:]
 data = json.load(open(source, encoding='utf-8'))
+router = os.path.abspath(os.path.join(root, 'route-skills.py')).replace('\\', '/')
 registry = os.path.abspath(os.path.join(root, 'skill-registry.json')).replace('\\', '/')
 skills = os.path.abspath(os.path.join(root, 'skills')).replace('\\', '/')
+data['skillRouting']['router'] = router
 data['skillRouting']['catalogs'] = ['~/.copilot/skill-registry.json', registry]
 data['skillRouting']['fallbackLocations'] = ['~/.copilot/skills', skills, '.github/skills', '.claude/skills']
 data['protectedRoots'] = [os.path.abspath(root).replace('\\', '/'), os.path.abspath(os.path.dirname(root)).replace('\\', '/')]
@@ -441,13 +444,14 @@ with open(target, 'w', encoding='utf-8') as stream:
     stream.write('\n')
 PY
   copy_managed_file "$harness_template" "$harness_target" agent-harness
+  copy_managed_file "${REPO_ROOT}/scripts/route_skills.py" "${COPILOT_ROOT}/route-skills.py" hook-script
   copy_managed_file "${REPO_ROOT}/config/tool-policy.json" "$tool_policy_target" tool-policy
   copy_managed_file "${REPO_ROOT}/hooks/harness-event.ps1" "$powershell_target" hook-script
   copy_managed_file "${REPO_ROOT}/hooks/harness_event.py" "$python_target" hook-script
   copy_managed_file "${REPO_ROOT}/scripts/scoreboard.py" "$scoreboard_script" hook-script
   copy_managed_file "${REPO_ROOT}/config/scoreboard.json" "$scoreboard_target" scoreboard
   copy_managed_file "${REPO_ROOT}/config/checks/approved_check.py" "${COPILOT_ROOT}/checks/approved_check.py" scoreboard-check
-  if [[ "$DRY_RUN" != true ]]; then chmod 700 "$python_target" "$scoreboard_script"; fi
+  if [[ "$DRY_RUN" != true ]]; then chmod 700 "$python_target" "$scoreboard_script" "${COPILOT_ROOT}/route-skills.py"; fi
 
   python3 - "${REPO_ROOT}/.github/hooks/agent-harness.json.example" "$hook_template" "$harness_target" "$trace_directory" "$powershell_target" "$python_target" "$tool_policy_target" "$scoreboard_target" "$scoreboard_script" "$COPILOT_ROOT" <<'PY'
 import json, os, sys

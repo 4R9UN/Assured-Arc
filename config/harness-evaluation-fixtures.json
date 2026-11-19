@@ -117,6 +117,21 @@
         { "hook_event_name": "SubagentStart", "session_id": "repair-budget", "agent_id": "writer-4", "agent_type": "Assured Arc Disposable Implementer", "failure_id": "failure-c" }
       ],
       "expect": ["observe", "allow", "observe", "allow", "observe", "allow", "observe", "deny"]
+    },
+    {
+      "id": "capscope-worker-capability-ceiling",
+      "events": [
+        { "hook_event_name": "SessionStart", "session_id": "capscope" },
+        { "hook_event_name": "PreToolUse", "session_id": "capscope", "agent_type": "Assured Arc Disposable Researcher", "tool_name": "web_fetch", "tool_input": { "url": "https://example.com" } },
+        { "hook_event_name": "PreToolUse", "session_id": "capscope", "agent_type": "Assured Arc Disposable Researcher", "tool_name": "apply_patch", "tool_input": { "filePath": "src/app.py" } },
+        { "hook_event_name": "PreToolUse", "session_id": "capscope", "agent_type": "Assured Arc Disposable Implementer", "tool_name": "apply_patch", "tool_input": { "filePath": "src/app.py" } },
+        { "hook_event_name": "PreToolUse", "session_id": "capscope", "agent_type": "Assured Arc Disposable Implementer", "tool_name": "web_fetch", "tool_input": { "url": "https://example.com" } },
+        { "hook_event_name": "PreToolUse", "session_id": "capscope", "agent_type": "Assured Arc Disposable Scout", "tool_name": "task", "tool_input": { "prompt": "nested" } },
+        { "hook_event_name": "PreToolUse", "session_id": "capscope", "agent_type": "assured-arc-verifier", "tool_name": "Bash", "tool_input": { "command": "pytest -q" } },
+        { "hook_event_name": "PreToolUse", "session_id": "capscope", "agent_type": "assured-arc-verifier", "tool_name": "Write", "tool_input": { "file_path": "src/app.py" } }
+      ],
+      "expect": ["observe", "observe", "deny", "observe", "deny", "deny", "observe", "deny"],
+      "responseContains": ["CapScope role ceiling"]
     }
   ]
 }

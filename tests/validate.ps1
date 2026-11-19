@@ -254,6 +254,7 @@ try {
     Test-Condition -Condition ($LASTEXITCODE -eq 0) -Message 'PowerShell Doctor accepts a healthy installed profile'
     Test-Condition -Condition (Test-Path -LiteralPath (Join-Path $copilot 'skills/assured-arc-development-quality/SKILL.md')) -Message 'PowerShell isolated install copies skills'
     Test-Condition -Condition (Test-Path -LiteralPath (Join-Path $copilot 'skill-registry.json')) -Message 'PowerShell isolated install copies skill registry'
+    Test-Condition -Condition (Test-Path -LiteralPath (Join-Path $copilot 'route-skills.py')) -Message 'PowerShell isolated install copies deterministic skill router'
     Test-Condition -Condition (Test-Path -LiteralPath (Join-Path $copilot 'agents/assured-arc-development.agent.md')) -Message 'PowerShell isolated install copies agents into the managed customization root'
     Test-Condition -Condition (Test-Path -LiteralPath (Join-Path $copilot 'prompts/plan-implement-verify.prompt.md')) -Message 'PowerShell isolated install copies reusable prompts'
     Test-Condition -Condition (Test-Path -LiteralPath (Join-Path $copilot 'instructions/assured-arc-general-agent.instructions.md')) -Message 'PowerShell isolated install copies the general instruction'

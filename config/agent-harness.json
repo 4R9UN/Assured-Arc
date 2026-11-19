@@ -56,7 +56,14 @@
       "Assured Arc Disposable Implementer",
       "Assured Arc Disposable Verifier",
       "Assured Arc Disposable Critic"
-    ]
+    ],
+    "workerCapabilities": {
+      "Assured Arc Disposable Scout": ["read", "analysis"],
+      "Assured Arc Disposable Researcher": ["read", "read-network", "analysis"],
+      "Assured Arc Disposable Implementer": ["read", "write", "analysis"],
+      "Assured Arc Disposable Verifier": ["read", "execute", "analysis"],
+      "Assured Arc Disposable Critic": ["read", "analysis"]
+    }
   },
   "loop": {
     "phases": [

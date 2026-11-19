@@ -127,8 +127,10 @@ def render_claude(contract: dict[str, Any], destination: Path, command: str, env
         if isinstance(loaded, dict):
             existing = loaded
     hooks = existing.setdefault("hooks", {})
+    hooks["SessionStart"] = [{"hooks": [hook]}]
     hooks["PreToolUse"] = [{"matcher": ".*", "hooks": [hook]}]
-    hooks["PostToolUse"] = [{"matcher": "Edit|Write|NotebookEdit", "hooks": [hook]}]
+    hooks["PostToolUse"] = [{"matcher": "Edit|MultiEdit|Write|NotebookEdit", "hooks": [hook]}]
+    hooks["PreCompact"] = [{"hooks": [hook]}]
     hooks["Stop"] = [{"hooks": [hook]}]
     hooks["SubagentStart"] = [{"hooks": [hook]}]
     hooks["SubagentStop"] = [{"hooks": [hook]}]

@@ -4,10 +4,12 @@
 from __future__ import annotations
 
 import ast
+import json
 import os
 from pathlib import Path
 import re
 import sys
+from urllib.parse import urlparse
 
 DEFAULT_ROOT = Path(__file__).resolve().parents[2]
 FORBIDDEN_SUFFIXES = {".tmp", ".bak", ".orig", ".swp", ".swo", ".pyc", ".pyo"}
@@ -38,17 +40,86 @@ COVERT_COMMENT_INJECTION_RE = re.compile(
     r"webhook\.site|requestbin\.com|canarytokens\.com)[\s\S]{0,2000}?-->",
     re.IGNORECASE,
 )
+TOOL_POISONING_META_RE = re.compile(
+    r"(?:ignore\s+(?:all\s+)?(?:previous|prior)\s+instructions|"
+    r"disregard\s+(?:the\s+)?system\s+prompt|"
+    r"do\s+not\s+tell\s+the\s+user|"
+    r"exfiltrate\s+(?:secrets|tokens|credentials|ssh)|"
+    r"webhook\.site|requestbin\.com|canarytokens\.com)",
+    re.IGNORECASE,
+)
+LOOPBACK_HOSTS = {"localhost", "127.0.0.1", "::1"}
+
+
+def _check_trojan_unicode(rel_path: Path, raw: bytes) -> list[str]:
+    text = raw.decode("utf-8", errors="ignore")
+    bad_cps = sorted({ord(ch) for ch in text if ord(ch) in BIDI_AND_TAG_CODEPOINTS})
+    if bad_cps:
+        hex_list = ", ".join(f"U+{cp:04X}" for cp in bad_cps[:5])
+        return [f"Trojan/smuggled Unicode codepoints ({hex_list}): {rel_path}"]
+    return []
 
 
 def _check_markdown_agentshield(rel_path: Path, raw: bytes) -> list[str]:
     text = raw.decode("utf-8", errors="ignore")
-    issues: list[str] = []
-    bad_cps = sorted({ord(ch) for ch in text if ord(ch) in BIDI_AND_TAG_CODEPOINTS})
-    if bad_cps:
-        hex_list = ", ".join(f"U+{cp:04X}" for cp in bad_cps[:5])
-        issues.append(f"Trojan/smuggled Unicode codepoints ({hex_list}): {rel_path}")
     if COVERT_COMMENT_INJECTION_RE.search(text):
-        issues.append(f"covert prompt-injection directive in HTML comment: {rel_path}")
+        return [f"covert prompt-injection directive in HTML comment: {rel_path}"]
+    return []
+
+
+def _is_mcp_config(rel_path: Path) -> bool:
+    lowered = rel_path.name.lower()
+    return (
+        lowered in {"mcp.json", "mcp-config.json", "mcp-servers.json"}
+        or ".mcp.json" in lowered
+        or lowered.startswith("mcp.json.")
+    )
+
+
+def _walk_mcp_strings(node: object) -> list[str]:
+    found: list[str] = []
+    if isinstance(node, dict):
+        for key, val in node.items():
+            if str(key).lower() in {"description", "notes", "title", "prompt", "instructions", "annotations"} and isinstance(val, str):
+                found.append(val)
+            else:
+                found.extend(_walk_mcp_strings(val))
+    elif isinstance(node, list):
+        for item in node:
+            found.extend(_walk_mcp_strings(item))
+    return found
+
+
+def _check_json_and_mcp(rel_path: Path, raw: bytes) -> list[str]:
+    issues: list[str] = []
+    try:
+        text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        return [f"invalid utf-8 in json file: {rel_path} ({exc})"]
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError as exc:
+        return [f"invalid json syntax: {rel_path}:{exc.lineno} ({exc.msg})"]
+
+    if not _is_mcp_config(rel_path) or not isinstance(parsed, dict):
+        return issues
+
+    for meta_text in _walk_mcp_strings(parsed):
+        if TOOL_POISONING_META_RE.search(meta_text):
+            issues.append(f"MCP tool-poisoning directive in metadata: {rel_path}")
+            break
+
+    servers_obj = parsed.get("servers") or parsed.get("mcpServers")
+    if isinstance(servers_obj, dict):
+        for server_id, spec in servers_obj.items():
+            if not isinstance(spec, dict):
+                continue
+            url = str(spec.get("url") or "").strip()
+            if url:
+                parsed_url = urlparse(url)
+                host = (parsed_url.hostname or "").lower()
+                if parsed_url.scheme == "http" and host not in LOOPBACK_HOSTS:
+                    issues.append(f"insecure non-HTTPS remote MCP endpoint '{server_id}': {rel_path}")
     return issues
 
 
@@ -101,7 +172,7 @@ def scan_workspace(root: Path) -> list[str]:
             if name.endswith("~") or suffix in FORBIDDEN_SUFFIXES:
                 violations.append(f"unwanted artifact: {rel_path}")
                 continue
-            if suffix in TEXT_SUFFIXES:
+            if suffix in TEXT_SUFFIXES or _is_mcp_config(rel_path):
                 try:
                     raw = path.read_bytes()
                 except OSError:
@@ -109,10 +180,13 @@ def scan_workspace(root: Path) -> list[str]:
                 if raw.startswith(b"<<<<<<< ") or any(marker in raw for marker in CONFLICT_MARKERS):
                     violations.append(f"unresolved merge conflict marker: {rel_path}")
                     continue
+                violations.extend(_check_trojan_unicode(rel_path, raw))
                 if suffix == ".py":
                     violations.extend(_check_python_ast(rel_path, raw))
                 elif suffix == ".md":
                     violations.extend(_check_markdown_agentshield(rel_path, raw))
+                elif suffix == ".json" or _is_mcp_config(rel_path):
+                    violations.extend(_check_json_and_mcp(rel_path, raw))
         if len(violations) >= 10:
             break
     return violations[:10]

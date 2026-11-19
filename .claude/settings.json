@@ -23,7 +23,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Edit|Write|NotebookEdit",
+        "matcher": "Edit|MultiEdit|Write|NotebookEdit",
         "hooks": [
           {
             "type": "command",
@@ -83,6 +83,46 @@
       }
     ],
     "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python hooks/harness_event.py",
+            "timeout": 180,
+            "env": {
+              "ASSURED_ARC_HARNESS_HOST": "claude",
+              "ASSURED_ARC_HARNESS_CONFIG": "config/agent-harness.json",
+              "ASSURED_ARC_HARNESS_TRACE_DIR": ".assured-arc/harness-runs",
+              "ASSURED_ARC_HARNESS_TOOL_POLICY": "config/tool-policy.json",
+              "ASSURED_ARC_SCOREBOARD": "config/scoreboard.json",
+              "ASSURED_ARC_SCOREBOARD_SCRIPT": "scripts/scoreboard.py",
+              "ASSURED_ARC_SCOREBOARD_ROOT": "config"
+            }
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python hooks/harness_event.py",
+            "timeout": 180,
+            "env": {
+              "ASSURED_ARC_HARNESS_HOST": "claude",
+              "ASSURED_ARC_HARNESS_CONFIG": "config/agent-harness.json",
+              "ASSURED_ARC_HARNESS_TRACE_DIR": ".assured-arc/harness-runs",
+              "ASSURED_ARC_HARNESS_TOOL_POLICY": "config/tool-policy.json",
+              "ASSURED_ARC_SCOREBOARD": "config/scoreboard.json",
+              "ASSURED_ARC_SCOREBOARD_SCRIPT": "scripts/scoreboard.py",
+              "ASSURED_ARC_SCOREBOARD_ROOT": "config"
+            }
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
       {
         "hooks": [
           {

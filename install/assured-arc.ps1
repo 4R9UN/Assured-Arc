@@ -302,6 +302,7 @@ function Assert-InstallPlanPaths {
         (Join-Path $VsCodeUser 'mcp.json'),
         $CopilotProfile,
         (Join-Path $CopilotProfile 'skill-registry.json'),
+        (Join-Path $CopilotProfile 'route-skills.py'),
         (Join-Path $CopilotProfile 'agent-harness.json'),
         (Join-Path $CopilotProfile 'tool-policy.json'),
         (Join-Path $CopilotProfile 'hooks\agent-harness.json'),
@@ -679,8 +680,10 @@ function Install-AgentHarness {
 
     $harnessTarget = Join-Path $CopilotProfile 'agent-harness.json'
     $harness = Read-JsonC (Join-Path $script:RepoRoot 'config\agent-harness.json')
+    $routerTarget = Join-Path $CopilotProfile 'route-skills.py'
     $registryTarget = [IO.Path]::GetFullPath((Join-Path $CopilotProfile 'skill-registry.json')).Replace('\', '/')
     $skillsTarget = [IO.Path]::GetFullPath((Join-Path $CopilotProfile 'skills')).Replace('\', '/')
+    $harness['skillRouting']['router'] = [IO.Path]::GetFullPath($routerTarget).Replace('\', '/')
     $harness['skillRouting']['catalogs'] = @('~/.copilot/skill-registry.json', $registryTarget)
     $harness['skillRouting']['fallbackLocations'] = @('~/.copilot/skills', $skillsTarget, '.github/skills', '.claude/skills')
     $protectedRoots = [System.Collections.ArrayList]@(
@@ -702,6 +705,7 @@ function Install-AgentHarness {
     }
     Register-Managed -Kind 'agent-harness' -Target $harnessTarget
 
+    Copy-ManagedFile -Source (Join-Path $script:RepoRoot 'scripts\route_skills.py') -Destination $routerTarget -Kind 'hook-script'
     Copy-ManagedFile -Source (Join-Path $script:RepoRoot 'config\tool-policy.json') -Destination $toolPolicyTarget -Kind 'tool-policy'
 
     $hookDirectory = Join-Path $CopilotProfile 'hooks'
@@ -797,8 +801,10 @@ function Install-ClaudeAdapters {
             if (-not $existing.Contains('hooks') -or $existing['hooks'] -isnot [System.Collections.IDictionary]) {
                 $existing['hooks'] = [ordered]@{}
             }
+            $existing['hooks']['SessionStart'] = @([ordered]@{ hooks = @($hookObj) })
             $existing['hooks']['PreToolUse'] = @([ordered]@{ matcher = '.*'; hooks = @($hookObj) })
-            $existing['hooks']['PostToolUse'] = @([ordered]@{ matcher = 'Edit|Write|NotebookEdit'; hooks = @($hookObj) })
+            $existing['hooks']['PostToolUse'] = @([ordered]@{ matcher = 'Edit|MultiEdit|Write|NotebookEdit'; hooks = @($hookObj) })
+            $existing['hooks']['PreCompact'] = @([ordered]@{ hooks = @($hookObj) })
             $existing['hooks']['Stop'] = @([ordered]@{ hooks = @($hookObj) })
             $existing['hooks']['SubagentStart'] = @([ordered]@{ hooks = @($hookObj) })
             $existing['hooks']['SubagentStop'] = @([ordered]@{ hooks = @($hookObj) })
