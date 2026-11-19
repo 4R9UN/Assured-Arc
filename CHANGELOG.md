@@ -4,6 +4,21 @@ All notable changes to **Assured Arc** are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **AgentShield Markdown Hygiene Check (`config/checks/approved_check.py`)**: Scans `.md` files during external scoreboard verification for Trojan-Source BiDi/Unicode-tag codepoints and covert HTML-comment prompt-injection directives.
+- **Compound-Token Skill Routing (`scripts/route_skills.py`)**: Splits hyphenated and underscored identifiers into component stems alongside exact tokens so multi-word natural queries match compound skill IDs reliably.
+- **Opt-In Non-Blocking Advisory Mode (`ASSURED_ARC_ADVISORY_ONLY=1` / `loop.advisoryOnly`)**: Converts `PreToolUse` `deny`/`ask` interventions into non-blocking `additionalContext` advisories while preserving metadata-only trace logging and `SessionStart`/`PreCompact` context cues.
+
+### Changed
+
+- **Cross-Host Tool Policy & Hook Precision (`config/agent-harness.json`, `config/tool-policy.json`, `hooks/harness_event.py`, `hooks/harness-event.ps1`)**:
+  - Raised default interactive `maximumToolCallsPerSession` to `2000`, exempted context-recovery tools (`get_context_remaining`, `new_context`, `session_artifacts`), and reset session tool counters on `PreCompact`.
+  - Refined disk-format detection (`format C:`) so CLI formatting flags such as `git log --format` or `ruff format` never trigger false-positive blocks.
+  - Added native Copilot CLI and Claude Code built-in tool classifications (`rg`, `sql`, `session_store_sql`, `tool_search_tool`, `skill`, `Edit`, `Write`, `Grep`, `Glob`, `Bash`, `Agent`) and hyphenated MCP prefixes (`context7-`, `sequential-thinking-`, `arxiv-`, `playwright-`).
+
 ## [1.1.0] - 2026-10-28
 
 ### Added

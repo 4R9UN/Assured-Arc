@@ -26,7 +26,8 @@ It is built for developers, engineering teams, workshops, and maintainers who ne
 - **External Scoreboard Verification Gate (`scripts/scoreboard.py` + `config/scoreboard.json`)**: Verify-after-write is enforced by deterministic hooks rather than prompt instructions. Any file write sets `pendingVerification = true`, blocking `Stop` completion until `scripts/scoreboard.py` executes approved checks (`config/checks/approved_check.py`) and writes a session- and cryptographic `verificationNonce`-matched `verification-receipt`.
 - **Strict Human-Gated Path Precedence**: `PreToolUse` hooks (`hooks/harness_event.py` and `hooks/harness-event.ps1`) evaluate human-gated boundaries first, strictly denying on-task edits to `.github/agents`, `.github/skills`, `.github/hooks`, `.claude/agents`, `.claude/settings.json`, `mcp.json`, `hooks/`, `scripts/`, `install/`, and `config/*` before fallback policies (`ask`) unless `ASSURED_ARC_HUMAN_GATE=open` is set by a human.
 - **Web Research & Surfing Skill (`assured-arc-web-research`)**: Added a portable skill for live web search (`web`, `WebSearch`), primary URL fetching (`WebFetch`, `fetch_webpage`), source provenance, and untrusted web content quarantine.
-- **Codebase Reuse & Anti-Bloat Hygiene (`assured-arc-codebase-reuse-hygiene` + `config/checks/approved_check.py`)**: Enforces mapping and reusing existing codebase modules before writing new code, forbids duplicate helpers or speculative bloat, cleans up dead code and temporary files, and verifies workspace hygiene in the external scoreboard check.
+- **Codebase Reuse & Anti-Bloat Hygiene (`assured-arc-codebase-reuse-hygiene` + `config/checks/approved_check.py`)**: Enforces mapping and reusing existing codebase modules before writing new code, forbids duplicate helpers or speculative bloat, cleans up dead code and temporary files, and scans Markdown files for Trojan-Source BiDi/Unicode-tag smuggling and covert HTML-comment prompt injection (`AgentShield`).
+- **Compound-Token Skill Routing & Multi-Host Ergonomics (`scripts/route_skills.py` + `hooks/harness_event.*`)**: Splits hyphenated/underscored identifiers during token scoring so natural-language queries match multi-word skill IDs, expands Copilot CLI and Claude Code built-in tool classifications (`2000`-call interactive session ceiling with `PreCompact` counter reset and context-recovery exemptions), prevents false-positive blocks on `--format` flags (such as `git log --format`), and supports opt-in non-blocking advisory mode (`ASSURED_ARC_ADVISORY_ONLY=1`).
 
 ## At a glance
 
@@ -38,7 +39,7 @@ It is built for developers, engineering teams, workshops, and maintainers who ne
 | **Hosts** | VS Code by default, native Claude Code adapter rendering (`.claude/` & `<profile-root>/claude`), plus explicit personal-profile opt-in for GitHub Copilot CLI |
 | **Orchestration** | Native coordinator, single implementation writer, delegation depth `1`, up to `3` concurrent workers, external scoreboard verification, and bounded repair (`≤ 2`) |
 | **Skills & prompts** | 29 portable lazy-loaded skills (`config/skill-registry.json`, including `assured-arc-web-research` and `assured-arc-codebase-reuse-hygiene`) and 6 VS Code reusable slash-command prompts (`.github/prompts/*.prompt.md`) |
-| **Verification gate** | Hook-enforced `scripts/scoreboard.py` + `config/scoreboard.json` with 32-hex cryptographic nonce receipts (`selfScoreAllowed: false`) |
+| **Verification gate** | Hook-enforced `scripts/scoreboard.py` + `config/scoreboard.json` with 32-hex cryptographic nonce receipts (`selfScoreAllowed: false`), Python AST checks, and `AgentShield` Markdown Unicode/injection scanning |
 | **Web & MCP research** | Host live web surfing (`web`, `WebSearch`, `WebFetch`), Context7 (HTTPS), Sequential Thinking `2026.7.4`, and isolated `uv`-managed arXiv MCP `0.5.1` |
 | **Knowledge** | Optional portable Markdown and Obsidian vault template (`vault-template/`) |
 | **Safety** | Strict human-gated path precedence, least-privilege tool scopes, state SHA-256 integrity, metadata-only traces, public safety checks, and explicit approval boundaries |
@@ -94,7 +95,7 @@ This repository provides a manifest-driven setup with safe defaults:
 | **Context-efficient skills** | Compact registry selects up to `3` domain skills, with Development Quality and Reuse/Hygiene discipline for code changes | The full 29-skill library is never injected into every prompt |
 | **Scoreboard verification gate** | Hook-driven `scripts/scoreboard.py` runs approved workspace hygiene and contract checks (`config/scoreboard.json`) after any file edit | `Stop` hook blocks completion until a session- and nonce-matched receipt passes; no self-scoring |
 | **Web & research tooling** | Live web surfing (`assured-arc-web-research`), current library docs (Context7), structured analysis (Sequential Thinking), and paper search (arXiv) | Web and MCP tools are available to read-only researchers, never to the implementation writer |
-| **Deterministic policy hooks** | Strict human-gated path precedence, worker/tool budgets, approval checks, and metadata-only traces | Traces and run receipts exclude prompts, reasoning, file contents, arguments, results, and secrets |
+| **Deterministic policy hooks** | Strict human-gated path precedence, `2000`-call interactive session ceiling (`PreCompact` reset), opt-in `ASSURED_ARC_ADVISORY_ONLY=1` advisory mode, and metadata-only traces | Traces and run receipts exclude prompts, reasoning, file contents, arguments, results, and secrets |
 | **Durable project context** | Optional Markdown and Obsidian vault with MOCs and project templates | Private artifacts stay under `local-only/` |
 | **Public package safety** | Generic examples, secret-free templates, and automated public-safety scans | No tenant data, personal paths, internal URLs, or private MCP endpoints |
 
@@ -266,6 +267,8 @@ After installation, restart or reload the selected hosts, then verify only the c
 | Disable backups | `-NoBackup` | `--no-backup` |
 | Run read-only health check | `pwsh -File install/doctor.ps1` | `bash install/doctor.sh` |
 | Plan legacy profile migration | `pwsh -File install/migrate-legacy.ps1` | `bash install/migrate-legacy.sh` |
+| Route task to `<= 3` skills | `python scripts/route_skills.py "<task>" --json` | `python3 scripts/route_skills.py "<task>" --json` |
+| Enable non-blocking advisory hook mode | `$env:ASSURED_ARC_ADVISORY_ONLY = '1'` | `export ASSURED_ARC_ADVISORY_ONLY=1` |
 
 Copy [config/assured-arc.example.json](config/assured-arc.example.json) to a local, ignored location when you need repeatable customization. Do not store secrets in that file.
 

@@ -6,6 +6,7 @@ from __future__ import annotations
 import ast
 import os
 from pathlib import Path
+import re
 import sys
 
 DEFAULT_ROOT = Path(__file__).resolve().parents[2]
@@ -26,6 +27,29 @@ IGNORED_DIRS = {
 TEXT_SUFFIXES = {".py", ".ps1", ".sh", ".json", ".md", ".svg", ".yml", ".yaml"}
 CONFLICT_MARKERS = (b"\n<<<<<<< ", b"\r\n<<<<<<< ", b"\n=======\n", b"\r\n=======\r\n", b"\n>>>>>>> ", b"\r\n>>>>>>> ")
 DEBUG_CALLS = {(" pdb", "set_trace"), ("pdb", "set_trace"), ("ipdb", "set_trace"), ("bdb", "set_trace")}
+BIDI_AND_TAG_CODEPOINTS = (
+    set(range(0x202A, 0x202F))
+    | set(range(0x2066, 0x206A))
+    | set(range(0xE0000, 0xE0080))
+)
+COVERT_COMMENT_INJECTION_RE = re.compile(
+    r"<!--[\s\S]{0,2000}?(?:ignore\s+(?:all\s+)?(?:previous|prior)\s+instructions|"
+    r"disregard\s+(?:the\s+)?system\s+prompt|"
+    r"webhook\.site|requestbin\.com|canarytokens\.com)[\s\S]{0,2000}?-->",
+    re.IGNORECASE,
+)
+
+
+def _check_markdown_agentshield(rel_path: Path, raw: bytes) -> list[str]:
+    text = raw.decode("utf-8", errors="ignore")
+    issues: list[str] = []
+    bad_cps = sorted({ord(ch) for ch in text if ord(ch) in BIDI_AND_TAG_CODEPOINTS})
+    if bad_cps:
+        hex_list = ", ".join(f"U+{cp:04X}" for cp in bad_cps[:5])
+        issues.append(f"Trojan/smuggled Unicode codepoints ({hex_list}): {rel_path}")
+    if COVERT_COMMENT_INJECTION_RE.search(text):
+        issues.append(f"covert prompt-injection directive in HTML comment: {rel_path}")
+    return issues
 
 
 def _check_python_ast(rel_path: Path, raw: bytes) -> list[str]:
@@ -87,6 +111,8 @@ def scan_workspace(root: Path) -> list[str]:
                     continue
                 if suffix == ".py":
                     violations.extend(_check_python_ast(rel_path, raw))
+                elif suffix == ".md":
+                    violations.extend(_check_markdown_agentshield(rel_path, raw))
         if len(violations) >= 10:
             break
     return violations[:10]

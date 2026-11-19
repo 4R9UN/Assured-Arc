@@ -35,7 +35,7 @@ HARD_DENY_PATTERNS = tuple(
         r"\brm\s+-rf\s+(?:/|~|\$home)(?:\s|$)",
         r"\b(?:rd|rmdir|del)\s+/[sq].*(?:[a-z]:\\|%userprofile%)",
         r"\bremove-item\b.*(?:[a-z]:\\|\$home|~).*-recurse.*-force",
-        r"\b(?:format|diskpart|shutdown|reboot)\b",
+        r"\b(?:format(?:\.com)?\s+[a-z]:|diskpart|shutdown|reboot)\b",
         r"\bpowershell(?:\.exe)?\b.*-encodedcommand\b",
         r"\breg\s+delete\b",
     )
@@ -198,10 +198,14 @@ def _release_pending_worker(state: dict[str, Any], agent_type: str) -> None:
 
 
 def _resolve_capability(tool_name: str, tool_policy: dict[str, Any]) -> str:
-    capability = str(tool_policy.get("tools", {}).get(tool_name, ""))
+    tools_map = tool_policy.get("tools", {})
+    capability = str(tools_map.get(tool_name, ""))
     if capability:
         return capability
     lowered_name = tool_name.lower()
+    for key, val in tools_map.items():
+        if str(key).lower() == lowered_name:
+            return str(val)
     for item in tool_policy.get("prefixes", []):
         prefix = str(item.get("prefix", "")).lower()
         if prefix and lowered_name.startswith(prefix):
@@ -405,6 +409,9 @@ def _append_trace(trace_dir: Path, limit: int, record: dict[str, Any]) -> None:
         pass
 
 
+CONTEXT_EXEMPT_TOOLS = {"get_context_remaining", "new_context", "session_artifacts"}
+
+
 def _tool_decision(
     tool_name: str,
     payload: str,
@@ -413,7 +420,7 @@ def _tool_decision(
     protected_roots: list[str],
     tool_policy: dict[str, Any],
 ) -> tuple[str | None, str | None]:
-    if tool_calls > maximum:
+    if tool_name.lower() not in CONTEXT_EXEMPT_TOOLS and tool_calls > maximum:
         return "deny", f"Harness tool-call budget exceeded ({maximum})."
 
     lowered_name = tool_name.lower()
@@ -585,8 +592,13 @@ def main() -> int:
             if agent_type in allowed_workers and state["active_workers"].get(agent_id) == agent_type:
                 del state["active_workers"][agent_id]
         elif event_name == "PreToolUse":
-            state["tool_calls"] += 1
             tool_name = str(event.get("tool_name") or "unknown")
+            if tool_name.lower() not in CONTEXT_EXEMPT_TOOLS:
+                state["tool_calls"] += 1
+            advisory_only = (
+                os.environ.get("ASSURED_ARC_ADVISORY_ONLY", "").strip() == "1"
+                or bool(loop.get("advisoryOnly", False))
+            )
             task_agent = _task_worker(event, allowed_workers) if host == "copilot-cli" and tool_name.lower() == "task" else ""
             if task_agent in allowed_workers:
                 maximum_parallel = int(delegation.get("maximumParallelWorkers", 3))
@@ -596,7 +608,7 @@ def main() -> int:
                 if state["subagents_started"] >= maximum_invocations:
                     decision, reason = "deny", f"Disposable worker invocation budget exceeded ({maximum_invocations})."
                 elif len(state["active_workers"]) >= maximum_parallel:
-                    decision, reason = "deny", f"Parallel disposable worker budget exceeded ({maximum_parallel})."
+                    decision, reason = "deny", "Parallel disposable worker budget exceeded ({maximum_parallel})."
                 elif is_writer and "Assured Arc Disposable Implementer" in state["active_workers"].values():
                     decision, reason = "deny", "Single-writer policy blocked a concurrent implementation worker."
                 elif is_writer and state["writer_invocations"] >= maximum_writers:
@@ -617,11 +629,19 @@ def main() -> int:
                         tool_name,
                         _normalize(event.get("tool_input", {})),
                         state["tool_calls"],
-                        int(loop.get("maximumToolCallsPerSession", 48)),
+                        int(loop.get("maximumToolCallsPerSession", 2000)),
                         [str(root) for root in config.get("protectedRoots", [])],
                         tool_policy,
                     )
-            if decision:
+            if advisory_only and decision in {"deny", "ask"}:
+                decision = "observe"
+                response = {
+                    "hookSpecificOutput": {
+                        "hookEventName": "PreToolUse",
+                        "additionalContext": f"Advisory notice: {reason}",
+                    }
+                }
+            elif decision:
                 response = {
                     "hookSpecificOutput": {
                         "hookEventName": "PreToolUse",
@@ -651,6 +671,7 @@ def main() -> int:
                 decision = "deny"
                 reason = response["stopReason"]
         elif event_name == "PreCompact":
+            state["tool_calls"] = 0
             fields = [str(item) for item in config.get("context", {}).get("preserveAcrossCompaction", [])]
             response = {
                 "hookSpecificOutput": {

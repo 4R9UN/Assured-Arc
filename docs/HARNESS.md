@@ -102,7 +102,7 @@ It does not record prompts, reasoning, file content, tool arguments, tool result
 
 Terminal events also create one atomic JSON run receipt under the existing trace directory. A receipt is restricted to schema, timestamp, opaque session and workspace hashes, host, aggregate worker counts, aggregate tool count, aggregate policy decision counts, and completion status. VS Code `Stop` and Copilot CLI `sessionEnd` represent completed runs. Copilot CLI `agentStop` records an agent-stopped receipt without clearing session state. Receipts use the same retention period and never contain prompts, objectives, paths, output, arguments, results, errors, environment values, or transcripts.
 
-Hooks ask before dependency installation, publishing, global configuration, destructive commands, and infrastructure changes. Clearly dangerous system operations are denied. The installer renders the actual managed roots into the policy, and installed agents cannot edit those roots during a daily run.
+Hooks ask before dependency installation, publishing, global configuration, destructive commands, and infrastructure changes. Clearly dangerous system operations (such as drive formatting `format C:` or recursive root deletion, while permitting benign CLI flags like `git log --format`) are denied. Interactive sessions default to a `2000`-call budget that resets on `PreCompact` and exempts context-recovery tools; setting `ASSURED_ARC_ADVISORY_ONLY=1` (or `"advisoryOnly": true` under `loop`) switches `PreToolUse` enforcement into non-blocking advisory notices. The installer renders the actual managed roots into the policy, and installed agents cannot edit those roots during a daily run.
 
 ## Harness evolution
 

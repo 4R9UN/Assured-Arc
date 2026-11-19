@@ -336,9 +336,13 @@ try {
             }
         }
         'PreToolUse' {
-            $state.tool_calls = [int]$state.tool_calls + 1
-            $maximum = if ($config.loop.maximumToolCallsPerSession) { [int]$config.loop.maximumToolCallsPerSession } else { 48 }
             $toolName = if ($event.PSObject.Properties.Name -contains 'tool_name') { [string]$event.tool_name } else { 'unknown' }
+            $exemptTools = @('get_context_remaining', 'new_context', 'session_artifacts')
+            if ($exemptTools -notcontains $toolName.ToLowerInvariant()) {
+                $state.tool_calls = [int]$state.tool_calls + 1
+            }
+            $maximum = if ($config.loop.maximumToolCallsPerSession) { [int]$config.loop.maximumToolCallsPerSession } else { 2000 }
+            $advisoryOnly = ($env:ASSURED_ARC_ADVISORY_ONLY -eq '1') -or ($config.loop.PSObject.Properties.Name -contains 'advisoryOnly' -and [bool]$config.loop.advisoryOnly)
             $payload = if ($event.PSObject.Properties.Name -contains 'tool_input') { (($event.tool_input | ConvertTo-Json -Compress -Depth 20).Replace('\', '/').ToLowerInvariant() -replace '/+', '/') } else { '' }
             $allowedWorkers = @($config.delegation.allowedWorkers)
             $taskAgent = ''
@@ -362,7 +366,7 @@ try {
                 '\brm\s+-rf\s+(?:/|~|\$home)(?:\s|$)',
                 '\b(?:rd|rmdir|del)\s+/[sq].*(?:[a-z]:\\|%userprofile%)',
                 '\bremove-item\b.*(?:[a-z]:\\|\$home|~).*-recurse.*-force',
-                '\b(?:format|diskpart|shutdown|reboot)\b',
+                '\b(?:format(?:\.com)?\s+[a-z]:|diskpart|shutdown|reboot)\b',
                 '\bpowershell(?:\.exe)?\b.*-encodedcommand\b',
                 '\breg\s+delete\b'
             )
@@ -403,7 +407,7 @@ try {
             elseif ($gate) {
                 $decision = [string]$gate.decision; $reason = [string]$gate.reason
             }
-            elseif ([int]$state.tool_calls -gt $maximum) {
+            elseif ($exemptTools -notcontains $toolName.ToLowerInvariant() -and [int]$state.tool_calls -gt $maximum) {
                 $decision = 'deny'; $reason = "Harness tool-call budget exceeded ($maximum)."
             }
             elseif ($protected -and ($writeTool -or -not $readTool)) {
@@ -430,7 +434,16 @@ try {
             elseif (-not $capability) {
                 $decision = [string]$toolPolicy.unknownDecision; $reason = 'Unknown tool capability requires review before use.'
             }
-            if ($decision -ne 'observe') {
+            if ($advisoryOnly -and $decision -in @('deny', 'ask')) {
+                $decision = 'observe'
+                $response = [ordered]@{
+                    hookSpecificOutput = [ordered]@{
+                        hookEventName = 'PreToolUse'
+                        additionalContext = "Advisory notice: $reason"
+                    }
+                }
+            }
+            elseif ($decision -ne 'observe') {
                 $response = [ordered]@{
                     hookSpecificOutput = [ordered]@{
                         hookEventName = 'PreToolUse'
@@ -479,6 +492,7 @@ try {
             }
         }
         'PreCompact' {
+            $state.tool_calls = 0
             $fields = @($config.context.preserveAcrossCompaction) -join '; '
             $response = [ordered]@{
                 hookSpecificOutput = [ordered]@{

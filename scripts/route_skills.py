@@ -23,7 +23,15 @@ STOPWORDS = {
 
 
 def _tokenize(text: str) -> set[str]:
-    return {tok for tok in TOKEN_RE.findall(text.lower()) if tok not in STOPWORDS and len(tok) > 1}
+    tokens: set[str] = set()
+    for raw in TOKEN_RE.findall(text.lower()):
+        if raw not in STOPWORDS and len(raw) > 1:
+            tokens.add(raw)
+        if "-" in raw or "_" in raw:
+            for part in re.findall(r"[a-z0-9]{2,}", raw):
+                if part not in STOPWORDS:
+                    tokens.add(part)
+    return tokens
 
 
 def load_merged_registry(paths: list[Path]) -> dict[str, Any]:

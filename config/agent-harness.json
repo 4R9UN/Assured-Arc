@@ -68,7 +68,7 @@
       "repair",
       "complete"
     ],
-    "maximumToolCallsPerSession": 48,
+    "maximumToolCallsPerSession": 2000,
     "maximumRepairIterations": 2,
     "maximumEquivalentFailures": 1,
     "requireExternalVerificationForChanges": true,
